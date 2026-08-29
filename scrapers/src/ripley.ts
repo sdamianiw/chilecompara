@@ -5,22 +5,22 @@ import type { Offer } from "./types";
 const RETAILER = "ripley";
 // La ruta de categoría `/tecno/celulares/smartphones` está MUERTA: devuelve
 // "La página que buscas ya no se encuentra disponible", y el interstitial de
-// Cloudflare tapaba ese 404 — durante un rato el scraper parecía bloqueado
+// Cloudflare tapaba ese 404: durante un rato el scraper parecía bloqueado
 // cuando además apuntaba a una URL inexistente. El buscador sí lista.
 const SEARCH = "https://simple.ripley.cl/search/smartphones?sort=relevance_desc&page=";
 // 4, no 2. `relevance_desc` es un ranking que la tienda recalcula sola: pedir
 // "las N páginas más relevantes" devuelve un CONJUNTO distinto de teléfonos en
 // cada pasada, no los mismos con otro precio. Medido en una sesión: 102, 54, 0,
 // 102, 57 ofertas, y los productos comparables entre tiendas se movían con
-// ellas (correlación 0.78). Más páginas no eliminan la causa —para eso habría
-// que ordenar por una clave estable, ver Limitaciones— pero amplían el solape
+// ellas (correlación 0.78). Más páginas no eliminan la causa (para eso habría
+// que ordenar por una clave estable, ver Limitaciones), pero amplían el solape
 // con las otras tiendas, que es lo que sostiene una tarjeta de tres precios.
 const PAGES = 4;
 
 /**
  * Ripley: navegador obligatorio, pero NO para leer el DOM.
  *
- * El sitio está detrás de Cloudflare — sin navegador da HTTP 403 y un shell
+ * El sitio está detrás de Cloudflare: sin navegador da HTTP 403 y un shell
  * `class="no-js"` sin producto alguno. Hace falta un navegador (y, mientras el
  * challenge sea de los que exigen una persona, una cookie de sesión) sólo para
  * ATRAVESAR LA PUERTA.
@@ -57,7 +57,7 @@ interface RipleyProduct {
  * de crédito de la propia tienda, así que compararlo contra el precio al contado
  * de Falabella o Paris anuncia un ahorro que el usuario no puede obtener sin
  * contratar un producto financiero. Se usa `price` (contado), y `oldPrice`
- * —el precio de lista— sólo si el primero no viene.
+ * (el precio de lista) sólo si el primero no viene.
  */
 function comparablePrice(p: RipleyProduct): number | null {
   return parseCLP(p.price ?? p.priceNumber ?? null) ?? parseCLP(p.oldPrice ?? null);

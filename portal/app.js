@@ -87,7 +87,7 @@ function escapeHtml(s) {
  * Normaliza para buscar: minúsculas y sin tildes.
  *
  * Sin esto, escribir "camara" no encuentra los productos cuyo título dice
- * "Cámara" — y nadie teclea las tildes en un buscador.
+ * "Cámara", y nadie teclea las tildes en un buscador.
  */
 function foldAccents(s) {
   return String(s ?? "").normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();

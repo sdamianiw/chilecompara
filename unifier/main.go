@@ -93,7 +93,7 @@ func main() {
 // rebuild recalcula el catálogo COMPLETO desde las ofertas crudas.
 //
 // Es O(n) sobre unos cientos de filas, así que reconstruir entero cuesta lo
-// mismo que actualizar incremental — y elimina la clase entera de bugs de
+// mismo que actualizar incremental, y elimina la clase entera de bugs de
 // estado parcial (una oferta retirada que sobrevive, un precio viejo que gana).
 func rebuild(ctx context.Context, rdb *redis.Client) {
 	raw, err := rdb.HGetAll(ctx, "offers").Result()
@@ -157,7 +157,7 @@ func rebuild(ctx context.Context, rdb *redis.Client) {
 // Dos niveles, por diseño y no como rescate: el 16% de los títulos no declara
 // almacenamiento (los iPhone de Falabella se listan como "IPhone 17" a secas).
 // Si esas ofertas sólo se agruparan por la clave completa, jamás cruzarían con
-// un retailer que sí escribe "256GB" — y son justamente los productos estrella.
+// un retailer que sí escribe "256GB", y son justamente los productos estrella.
 func unify(offers []Offer) []Product {
 	byKey := map[string]*group{}
 	var order []string
@@ -175,7 +175,7 @@ func unify(offers []Offer) []Product {
 	}
 
 	// Segundo nivel: las ofertas sin almacenamiento se adhieren al grupo que
-	// comparte marca, modelo y condición — pero SÓLO si hay exactamente uno.
+	// comparte marca, modelo y condición, pero SÓLO si hay exactamente uno.
 	// Con dos candidatos (256 GB y 512 GB) la oferta es genuinamente ambigua, y
 	// mostrar dos tarjetas separadas es honesto; fusionar al azar inventaría un
 	// "más barato" falso, que es el error más caro de esta pantalla.

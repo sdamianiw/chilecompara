@@ -14,14 +14,14 @@ const CATEGORY_PATHS = [
  *
  * La primera versión de este scraper llamaba a la API de catálogo de VTEX, que
  * es lo que uno espera de un retailer chileno grande. Estaba equivocada: esos
- * endpoints no están bloqueados, **ya no existen**. Comprobado —
+ * endpoints no están bloqueados, **ya no existen**. Comprobado:
  * `pariscl.vtexcommercestable.com.br` responde 400 "This store is temporarily
  * unavailable" y el dominio público sirve `/_next/static/chunks/`. Paris migró a
  * Next.js con Constructor.io para búsqueda y catálogo.
  *
  * Eso cambia dónde están los datos: cada tarjeta del listado es un
  * `<div role="gridcell">` con los atributos de analítica de Constructor.io ya
- * puestos — `data-cnstrc-item-name`, `-item-id`, `-item-price`. Es metadata
+ * puestos: `data-cnstrc-item-name`, `-item-id`, `-item-price`. Es metadata
  * estructurada dentro del HTML: mejor que raspar texto de la maqueta, porque no
  * depende de clases CSS que cambian con cada rediseño.
  *
@@ -54,7 +54,7 @@ function decodeEntities(s: string): string {
  * cada atributo por separado y emparejarlos por posición: si una tarjeta llegara
  * sin precio, el emparejamiento posicional desplazaría todos los precios una
  * fila y asignaría a cada teléfono el precio del siguiente. Un error así no
- * rompe nada visiblemente — simplemente muestra precios falsos.
+ * rompe nada visiblemente: simplemente muestra precios falsos.
  */
 function parseGridcells(html: string): Offer[] {
   const offers: Offer[] = [];
@@ -86,7 +86,7 @@ function parseGridcells(html: string): Offer[] {
 }
 
 /**
- * Vía 1 — el sitio directo, con navegador.
+ * Vía 1: el sitio directo, con navegador.
  *
  * Sólo prospera si alguien pasó el CAPTCHA y exportó su cookie
  * (`PARIS_WAF_COOKIE`). Sin ella, AWS WAF sirve el reto y se devuelve null para
@@ -118,11 +118,11 @@ async function fetchDirect(path: string): Promise<string | null> {
 }
 
 /**
- * Vía 2 — proxy de lectura público.
+ * Vía 2: proxy de lectura público.
  *
  * `r.jina.ai` carga la URL con un navegador propio y devuelve el DOM ya
  * renderizado. Los datos siguen siendo del catálogo real de Paris y del momento
- * en que se pide — no es una copia en caché ni un fixture. Pero es un
+ * en que se pide, no es una copia en caché ni un fixture. Pero es un
  * INTERMEDIARIO, y eso se declara: queda en el estado del scraper, se muestra
  * en el portal y está escrito en el README. Presentarlo como acceso directo
  * sería mentir sobre la procedencia del dato.

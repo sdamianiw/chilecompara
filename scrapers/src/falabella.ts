@@ -81,7 +81,7 @@ function decodeBody(buf: Buffer, contentType: string | null): string {
 /**
  * Repara mojibake por título, no por documento.
  *
- * Medido: Falabella mezcla los dos encodings DENTRO de la misma respuesta —
+ * Medido: Falabella mezcla los dos encodings DENTRO de la misma respuesta:
  * unos títulos llegan bien y otros con la firma clásica de UTF-8 leído como
  * latin1 ("cámara" -> "cÃ¡mara"). Por eso decidir el encoding a nivel de
  * documento no alcanza: se repara cada cadena por separado, y sólo si muestra

@@ -14,7 +14,7 @@ import (
 // NO hay reglas por producto en ningún punto: el vocabulario que usamos es de
 // ATRIBUTOS (marcas, colores, ruido comercial), no de modelos. Un teléfono que
 // nadie ha visto nunca se normaliza igual que uno conocido, siempre que su
-// marca sea conocida — y si no lo es, el token de marca se extrae del título.
+// marca sea conocida, y si no lo es, el token de marca se extrae del título.
 type Identity struct {
 	Brand     string
 	Model     string
@@ -210,8 +210,8 @@ func extractCapacities(s string) ([]int, string) {
 // storageFrom elige el ALMACENAMIENTO entre las capacidades halladas.
 //
 // Se toma el máximo, no el primero. Los títulos reales mezclan RAM y ROM en
-// cualquier orden — "8GB RAM+ 256GB Memoria" y "256GB (12GB RAM)" aparecen los
-// dos en el mismo catálogo — y en un smartphone la RAM siempre es menor que el
+// cualquier orden ("8GB RAM+ 256GB Memoria" y "256GB (12GB RAM)" aparecen los
+// dos en el mismo catálogo), y en un smartphone la RAM siempre es menor que el
 // almacenamiento. Quedarse con el primer match devuelve 8 GB para un teléfono
 // de 256 GB, que además de ser falso parte la clave en dos.
 func storageFrom(caps []int) int {
@@ -301,7 +301,7 @@ func Identify(title, declaredBrand string) Identity {
 
 	// Se probó descartar los números sueltos pequeños que sobreviven a una frase
 	// de ficha técnica ya despalabrada ("Snapdragon 8 Elite Gen 5" deja un "8" y
-	// un "5"). Se revirtió: el test de "Galaxy Z Flip 8" lo refutó — ahí el 8 ES
+	// un "5"). Se revirtió: el test de "Galaxy Z Flip 8" lo refutó: ahí el 8 ES
 	// el modelo, y no hay forma barata de distinguir un número de modelo de un
 	// número de chipset sin mirar la posición respecto a la palabra eliminada.
 	// El coste de no hacerlo es una tarjeta duplicada; el de hacerlo, un nombre
@@ -322,7 +322,7 @@ func Identify(title, declaredBrand string) Identity {
 
 // isColor reconoce también los colores COMPUESTOS que los catálogos escriben
 // pegados: "icyblue", "midnightblack", "skyblue". Enumerarlos uno a uno es una
-// carrera perdida — cada temporada trae nombres nuevos —, así que basta con que
+// carrera perdida (cada temporada trae nombres nuevos), así que basta con que
 // el token sea alfabético y contenga un color conocido. "Icy Blue" y "IcyBlue"
 // dejan así de ser dos productos distintos.
 func isColor(token string) bool {

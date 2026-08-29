@@ -2,7 +2,7 @@ import { chromium, type Browser, type BrowserContext } from "playwright";
 
 // Cloudflare ata su cookie de challenge al User-Agent EXACTO del navegador que
 // la obtuvo: si el contenedor se presenta distinto, la cookie se rechaza. Por eso
-// el UA es configurable — quien exporta la cookie exporta también su UA.
+// el UA es configurable: quien exporta la cookie exporta también su UA.
 const UA =
   process.env.SCRAPER_UA ??
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
@@ -36,7 +36,7 @@ export async function openBrowser(): Promise<{ browser: Browser; context: Browse
  * Inyecta cookies de sesión obtenidas fuera del contenedor.
  *
  * Por qué existe: Paris y Ripley no sirven un desafío que un navegador resuelva
- * solo, sino uno que exige una persona — un puzzle de imágenes de AWS WAF y un
+ * solo, sino uno que exige una persona: un puzzle de imágenes de AWS WAF y un
  * managed challenge de Cloudflare. Fingir que no existe no es una opción, y
  * falsear los datos tampoco. Lo honesto es aislar el paso humano: alguien pasa
  * el desafío UNA vez en su navegador, exporta la cookie, y a partir de ahí el

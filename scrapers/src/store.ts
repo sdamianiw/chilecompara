@@ -34,7 +34,7 @@ export async function saveStatus(status: ScrapeStatus): Promise<void> {
 /**
  * Corre un scraper en bucle. Un fallo NO mata el contenedor: se registra el
  * motivo en Redis y se reintenta en la siguiente vuelta. El nodo sigue de pie
- * aunque el retailer esté bloqueándonos — eso es información, no una caída.
+ * aunque el retailer esté bloqueándonos: eso es información, no una caída.
  */
 export async function runLoop(
   retailer: string,

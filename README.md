@@ -180,7 +180,7 @@ Se midió antes de decidir nada, con `curl` y un User-Agent de Chrome:
 
 Son **dos**, no uno. Falabella se libra porque renderiza en el servidor con
 Next.js y deja el catálogo entero serializado en el HTML: un GET basta. Paris
-tiene AWS WAF delante del dominio completo — el interstitial aparece igual en la
+tiene AWS WAF delante del dominio completo: el interstitial aparece igual en la
 API de VTEX, en el sitemap y en el árbol de categorías, así que no es cuestión
 de encontrar el endpoint correcto. Ripley devuelve un cascarón cuyo contenido
 sólo existe después de ejecutar su JavaScript.
@@ -189,14 +189,14 @@ sólo existe después de ejecutar su JavaScript.
 
 La primera versión llamaba a la API de catálogo de **VTEX**, que es lo que uno
 espera de un retailer chileno grande. Estaba equivocada, y el error era sutil:
-esos endpoints no están *bloqueados*, **ya no existen**. Medido —
+esos endpoints no están *bloqueados*, **ya no existen**. Medido:
 `pariscl.vtexcommercestable.com.br` responde `400 "This store is temporarily
 unavailable"` y el dominio público sirve `/_next/static/chunks/`. Paris migró a
 **Next.js + Constructor.io**.
 
 Los datos están en los atributos de analítica que Constructor.io deja en cada
 tarjeta del listado: `data-cnstrc-item-name`, `-item-id`, `-item-price`. Eso es
-metadata estructurada dentro del HTML — mejor que raspar texto, porque no depende
+metadata estructurada dentro del HTML, mejor que raspar texto, porque no depende
 de clases CSS que cambian con cada rediseño.
 
 Un detalle que parece menor y no lo es: se parsea la **etiqueta completa** y de
@@ -211,8 +211,8 @@ del siguiente. Ese fallo no rompe nada visible: sólo muestra precios falsos.
 2. **Proxy de lectura público** (`r.jina.ai`), que carga la URL con su propio
    navegador y devuelve el DOM renderizado.
 
-La segunda entrega el catálogo real de Paris en el momento en que se pide — no
-es una copia en caché ni un fixture — pero pasa por un **intermediario**, y eso
+La segunda entrega el catálogo real de Paris en el momento en que se pide, no
+es una copia en caché ni un fixture, pero pasa por un **intermediario**, y eso
 se declara: queda en el estado del scraper, se muestra en el chip del portal y
 está escrito aquí. Presentarlo como acceso directo sería mentir sobre la
 procedencia del dato.
@@ -220,36 +220,36 @@ procedencia del dato.
 ### 3. La unificación no tiene una sola regla por producto
 
 La clave canónica es `marca | modelo | almacenamiento | condición`. Todo lo que
-la construye es un vocabulario de **atributos** — marcas, colores, ruido
-comercial, unidades de ficha técnica — nunca una lista de modelos. Un teléfono
+la construye es un vocabulario de **atributos** (marcas, colores, ruido
+comercial, unidades de ficha técnica), nunca una lista de modelos. Un teléfono
 que no existe todavía se normaliza igual que uno conocido, y hay un test que lo
 comprueba con un producto inventado.
 
 Cuatro decisiones concretas, cada una nacida de un dato medido en el catálogo
 real, no de una intuición. **Todos los porcentajes de abajo están medidos sobre
-las 169 ofertas del catálogo unificado de hoy** — la primera versión de este
+las 169 ofertas del catálogo unificado de hoy**. La primera versión de este
 README los citaba sobre una sola página de Falabella y los presentaba como si
 fueran del conjunto, que es una forma silenciosa de mentir con datos ciertos:
 
 - **La marca sale del campo estructurado cuando existe, y del título cuando no.**
   El **26 %** de los títulos del catálogo (169 ofertas) no contiene ningún token
-  de marca — `Celular 15T 512GB`, `Celular Edge 60 256GB` — y extraerla del texto
+  de marca (`Celular 15T 512GB`, `Celular Edge 60 256GB`), y extraerla del texto
   fabricaba marcas falsas como `15t` o `edge`. Falabella publica `brand`
   estructurado en el **100 %** de sus ofertas; **Paris en ninguna**, así que sobre
   el 17 % del catálogo la marca sí sale del título, por el fallback de token. Los
-  títulos de Paris siempre nombran la marca, así que ahí funciona — pero es la
+  títulos de Paris siempre nombran la marca, así que ahí funciona, pero es la
   parte frágil del mecanismo, no la sólida.
 - **El almacenamiento es el máximo de las capacidades, no la primera.** Los
   títulos mezclan RAM y ROM en cualquier orden: `8GB RAM+ 256GB Memoria` y
   `256GB (12GB RAM)` conviven en el mismo catálogo. Quedarse con el primer match
-  devolvía 8 GB para un teléfono de 256 GB — un dato falso *y* una clave partida.
+  devolvía 8 GB para un teléfono de 256 GB: un dato falso *y* una clave partida.
 - **La condición entra en la clave.** El **14 %** del catálogo es reacondicionado
   (23 de 169; el 16 % de las ofertas de Falabella).
   Si colapsa con el producto nuevo, el portal anuncia un "más barato" que el
   usuario no puede comprar. Eso no es un bug de formato: destruye la única
   promesa que hace la pantalla.
 - **Las ofertas sin capacidad se adhieren, pero sólo si no hay ambigüedad.** El
-  **11 %** de los títulos no declara almacenamiento — y son justo los iPhone,
+  **11 %** de los títulos no declara almacenamiento, y son justo los iPhone,
   que Falabella lista como `IPhone 17` a secas. Esas ofertas se unen al grupo que
   comparte marca, modelo y condición **si hay exactamente un candidato**. Con dos
   (256 GB y 512 GB) la oferta es genuinamente ambigua y se deja aparte: dos
@@ -277,7 +277,7 @@ materia prima de la unificación. El scraper decodifica en `latin1`.
 ### 6. El catálogo se reconstruye entero en cada evento
 
 Son unos cientos de filas: recalcular todo cuesta lo mismo que actualizar
-incremental y elimina de raíz los bugs de estado parcial — la oferta retirada que
+incremental y elimina de raíz los bugs de estado parcial: la oferta retirada que
 sobrevive, el precio viejo que gana. La complejidad se paga en la demo.
 
 ### 7. Un retailer bloqueado se muestra, no se esconde
@@ -340,7 +340,7 @@ Ninguno de los tres se deja raspar de frente, y cada uno se resolvió distinto:
 **Las dos muletas tienen coste y hay que decirlo:**
 
 - **El proxy de Paris es un intermediario.** Entrega el catálogo real y del
-  momento en que se pide — no es caché ni fixture — pero no es nuestra IP la que
+  momento en que se pide, no es caché ni fixture, pero no es nuestra IP la que
   habla con Paris. Queda escrito en el estado del scraper y visible en el portal.
 - **La cookie de Ripley caduca en ~30 minutos.** Medido en esta sesión: el
   scraper pasó el challenge, y un ciclo después volvió el interstitial "Un
@@ -348,13 +348,13 @@ Ninguno de los tres se deja raspar de frente, y cada uno se resolvió distinto:
   integración desatendida.**
 
 **¿Y por qué Ripley no usa el proxy que salva a Paris?** Es la pregunta obvia
-—el mecanismo ya está escrito— y merece una medición, no una excusa. La hice
+(el mecanismo ya está escrito) y merece una medición, no una excusa. La hice
 *después de entregar*, y por eso está fechada aparte: **29/08/2026, ~14:00.**
 Tres estados con minutos de diferencia, contra la misma URL:
 
 | Vía | Resultado |
 |---|---|
-| Navegador + cookie caducada (>40 min) | **53 ofertas** — Cloudflare la sigue honrando pasado el nominal |
+| Navegador + cookie caducada (>40 min) | **53 ofertas**. Cloudflare la sigue honrando pasado el nominal |
 | Navegador **sin cookie alguna** | bloqueado: `Un momento…` |
 | **Proxy de lectura** (`r.jina.ai`), el mismo que usa Paris | `Error en Ripley.com \| IUA`, en dos URLs distintas y forzando lectura sin caché |
 
@@ -366,11 +366,11 @@ cookie manual no es un atajo que quedara por cerrar: es el borde de lo alcanzabl
 sin pagar resolución de CAPTCHA o IPs residenciales, que está fuera de alcance a
 propósito.
 
-Eso no cambia el límite de arriba —esto no corre desatendido— pero sí cambia de
+Eso no cambia el límite de arriba (esto no corre desatendido), pero sí cambia de
 qué es límite: **del sitio objetivo, no del diseño.**
 
 **Y el hallazgo que costó tres intentos:** el bloqueo de Ripley no estaba donde
-parecía. Primero, la ruta `/tecno/celulares/smartphones` está **muerta** — el
+parecía. Primero, la ruta `/tecno/celulares/smartphones` está **muerta**: el
 interstitial de Cloudflare tapaba un 404, así que parecía bloqueo cuando además
 era una URL inexistente; la ruta viva es `/search/smartphones`. Segundo, con la
 URL correcta y cookie, Cloudflare **sí se pasa**. Tercero, el listado lo pinta un
@@ -386,7 +386,7 @@ cada tres veces en uno determinista: **102 ofertas, todas las corridas.**
 
 Se probó además `playwright-extra` con el plugin stealth, la mitigación estándar
 contra la detección de automatización: **negativo en ambos sitios**, mismo
-bloqueo en la misma etapa. Tiene sentido — stealth ataca huellas de
+bloqueo en la misma etapa. Tiene sentido: stealth ataca huellas de
 automatización, y aquí el obstáculo era un puzzle de imágenes y un challenge
 gestionado en servidor. Las dependencias se revirtieron tras medirlo: un stealth
 que no destraba nada es peso muerto.
@@ -401,7 +401,7 @@ que no destraba nada es peso muerto.
   pierde las palabras pero deja un "8" y un "5" en el modelo, lo que parte el
   Xiaomi 17 en dos tarjetas. Se intentó descartar números pequeños y el test de
   "Galaxy Z Flip 8" lo refutó: ahí el 8 **es** el modelo. Se revirtió a
-  propósito — una tarjeta duplicada es un defecto menor que un nombre de producto
+  propósito: una tarjeta duplicada es un defecto menor que un nombre de producto
   destruido.
 - **El vocabulario de marcas y colores es finito.** Una marca nueva cae al
   fallback (el primer token útil del título hace de marca), lo que funciona pero
@@ -445,7 +445,7 @@ de por relevancia. No lo hice porque no pude comprobar qué valores de `sort`
 acepta el buscador de Ripley sin una sesión válida, y prefiero no publicar un
 parámetro que no vi funcionar. Lo que sí subí es la cobertura de 2 a 4 páginas:
 no elimina la causa, amplía el solape con las otras tiendas. Ese cambio tampoco
-se pudo correr en vivo —la cookie caducó— pero el bucle corta solo en la primera
+se pudo correr en vivo (la cookie caducó), pero el bucle corta solo en la primera
 página vacía (`ripley.ts:111`), así que no puede romper una pasada.
 
 ### 5. La tarjeta no siempre enlaza al producto
