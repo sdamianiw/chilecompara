@@ -395,7 +395,38 @@ deprime el número de productos comparables: un teléfono que Paris vende y no
 alcanzamos a leer aparece como si sólo estuviera en dos tiendas. Paginar Paris
 es trabajo pendiente, no un límite del diseño.
 
-### 4. La tarjeta no siempre enlaza al producto
+### 4. Los totales fluctúan entre pasadas, y la causa es una decisión mía
+
+Los tres nodos raspan cada 15 min con relojes independientes, así que el catálogo
+siempre mezcla tres fotos tomadas a horas distintas. Pero la variación grande no
+viene de ahí: **Ripley se pide con `sort=relevance_desc`, un ranking que la
+tienda recalcula sola.** Pedir "las N páginas más relevantes" devuelve un
+conjunto distinto de teléfonos en cada pasada, no los mismos con otro precio.
+
+Medido en una sola sesión de tres horas:
+
+| hora | falabella | paris | ripley | productos | comparables |
+|---|---|---|---|---|---|
+| 11:47 | 151 | 31 | 102 | 168 | 44 |
+| 12:36 | 138 | 32 | 54 | 143 | 32 |
+| 12:52 | 138 | 31 | 0 | 132 | 31 |
+| 13:05 | 138 | 31 | 102 | 161 | 38 |
+| 13:07 | 149 | 31 | 57 | 142 | 30 |
+
+Falabella apenas se mueve (lee una categoría, sin ranking). Ripley va de 0 a 102,
+y los comparables lo siguen con **correlación 0.78**: perder una oferta de Ripley
+no resta un producto, rompe un *cruce*, que es justo lo que sostiene una tarjeta
+de tres precios.
+
+**El arreglo de verdad es ordenar por una clave estable** (precio o SKU) en vez
+de por relevancia. No lo hice porque no pude comprobar qué valores de `sort`
+acepta el buscador de Ripley sin una sesión válida, y prefiero no publicar un
+parámetro que no vi funcionar. Lo que sí subí es la cobertura de 2 a 4 páginas:
+no elimina la causa, amplía el solape con las otras tiendas. Ese cambio tampoco
+se pudo correr en vivo —la cookie caducó— pero el bucle corta solo en la primera
+página vacía (`ripley.ts:111`), así que no puede romper una pasada.
+
+### 5. La tarjeta no siempre enlaza al producto
 
 En Falabella cada oferta trae su URL. En Paris y Ripley los datos vienen del
 listado (atributos de Constructor.io y `__NEXT_DATA__` respectivamente) y **el
@@ -404,7 +435,7 @@ teléfono**. El precio y el emparejamiento son correctos; el clic deja al usuari
 un paso más lejos de lo que debería. Se arregla leyendo el slug de cada producto
 en la misma estructura de la que ya sacamos el precio.
 
-### 5. Lo que NO pude verificar
+### 6. Lo que NO pude verificar
 
 - **Si un servicio de resolución de CAPTCHA o una IP residencial destrabarían
   Paris y Ripley.** Es la única vía técnica no agotada, y queda fuera de alcance

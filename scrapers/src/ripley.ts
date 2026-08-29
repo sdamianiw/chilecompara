@@ -8,7 +8,14 @@ const RETAILER = "ripley";
 // Cloudflare tapaba ese 404 — durante un rato el scraper parecía bloqueado
 // cuando además apuntaba a una URL inexistente. El buscador sí lista.
 const SEARCH = "https://simple.ripley.cl/search/smartphones?sort=relevance_desc&page=";
-const PAGES = 2;
+// 4, no 2. `relevance_desc` es un ranking que la tienda recalcula sola: pedir
+// "las N páginas más relevantes" devuelve un CONJUNTO distinto de teléfonos en
+// cada pasada, no los mismos con otro precio. Medido en una sesión: 102, 54, 0,
+// 102, 57 ofertas, y los productos comparables entre tiendas se movían con
+// ellas (correlación 0.78). Más páginas no eliminan la causa —para eso habría
+// que ordenar por una clave estable, ver Limitaciones— pero amplían el solape
+// con las otras tiendas, que es lo que sostiene una tarjeta de tres precios.
+const PAGES = 4;
 
 /**
  * Ripley: navegador obligatorio, pero NO para leer el DOM.
