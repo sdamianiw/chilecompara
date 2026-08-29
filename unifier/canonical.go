@@ -74,6 +74,16 @@ var noiseWords = map[string]bool{
 	// El coste conocido está en el README: un "A17 LTE" y un "A17 5G", que sí
 	// son modelos distintos, colapsan en la misma tarjeta.
 	"5g": true, "4g": true, "3g": true, "lte": true,
+
+	// Ficha técnica y marketing: procesador, panel, grado del reacondicionado.
+	// Una tienda escribe "Xiaomi 17 512GB" y otra "Xiaomi 17 5G 12GB RAM 512GB
+	// Snapdragon 8 Elite Gen 5"; sin esto son dos tarjetas del mismo teléfono.
+	"snapdragon": true, "dimensity": true, "exynos": true, "mediatek": true,
+	"helio": true, "elite": true, "gen": true, "octacore": true,
+	"amoled": true, "oled": true, "lcd": true, "ips": true, "hd": true,
+	"flagship": true, "global": true, "internos": true, "interno": true,
+	"interna": true, "kit": true, "excelente": true, "bueno": true,
+	"muy": true, "estado": true, "grado": true, "libre": true,
 }
 
 // Colores, en los dos idiomas en que aparecen en los catálogos chilenos.
@@ -102,8 +112,11 @@ var accents = strings.NewReplacer(
 )
 
 var (
-	// "8+256gb" / "16+1Tb": capacidad doble, RAM + almacenamiento.
-	reRamRom = regexp.MustCompile(`(\d+)\s*\+\s*(\d+)\s*(gb|tb|g)\b`)
+	// "8+256gb" / "16+1Tb" / "12+512": capacidad doble, RAM + almacenamiento.
+	// La unidad es OPCIONAL porque catálogos reales publican "POCO X7 PRO
+	// 12+512" sin ella; sin este caso esos productos quedaban con 0 GB y el
+	// número se colaba como token del modelo.
+	reRamRom = regexp.MustCompile(`(\d+)\s*\+\s*(\d+)\s*(gb|tb|g)?\b`)
 	// "256gb", "1tb", "256 gb", y "256g" sin la b (aparece en catálogos reales).
 	reCap = regexp.MustCompile(`(\d+)\s*(gb|tb|g)\b`)
 	// Ruido de ficha técnica: "6000mah", "50mp", "120hz", "ip65". Cada retailer
@@ -136,6 +149,11 @@ func extractCapacities(s string) ([]int, string) {
 		g := reRamRom.FindStringSubmatch(m)
 		ram, _ := strconv.Atoi(g[1])
 		rom, _ := strconv.Atoi(g[2])
+		if g[3] == "" && rom < minStorageGB*2 {
+			// Sin unidad y con un segundo número pequeño no hay evidencia de que
+			// sea una capacidad. Se deja el texto intacto antes que inventar.
+			return m
+		}
 		// La unidad rige SÓLO al segundo número: "16+1Tb" son 16 GB de RAM y
 		// 1 TB de almacenamiento, no 16 TB. Aplicarla a ambos daba 16384 GB.
 		caps = append(caps, ram, toGB(rom, g[3]))
@@ -245,6 +263,14 @@ func Identify(title, declaredBrand string) Identity {
 		brand = model[0]
 		model = model[1:]
 	}
+
+	// Se probó descartar los números sueltos pequeños que sobreviven a una frase
+	// de ficha técnica ya despalabrada ("Snapdragon 8 Elite Gen 5" deja un "8" y
+	// un "5"). Se revirtió: el test de "Galaxy Z Flip 8" lo refutó — ahí el 8 ES
+	// el modelo, y no hay forma barata de distinguir un número de modelo de un
+	// número de chipset sin mirar la posición respecto a la palabra eliminada.
+	// El coste de no hacerlo es una tarjeta duplicada; el de hacerlo, un nombre
+	// de producto destruido. Queda en las limitaciones del README.
 
 	// Orden estable: dos retailers que escriben los mismos atributos en distinto
 	// orden ("Galaxy S25 Ultra" vs "S25 Ultra") deben producir la misma clave.

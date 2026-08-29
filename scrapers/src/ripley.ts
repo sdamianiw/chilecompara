@@ -66,6 +66,13 @@ function harvestFromJson(node: unknown, out: Harvested[], depth = 0): void {
 async function scrape(): Promise<Offer[]> {
   const { browser, context } = await openBrowser();
   try {
+    // Mitigación barata: Cloudflare (el guardián real de simple.ripley.cl, ver
+    // más abajo) mira `navigator.webdriver` como una de varias señales. No
+    // basta por sí sola -medido-, pero no cuesta nada dejarla puesta.
+    await context.addInitScript(() => {
+      Object.defineProperty(navigator, "webdriver", { get: () => undefined });
+    });
+
     const page = await context.newPage();
     const fromJson: Harvested[] = [];
 
@@ -88,6 +95,28 @@ async function scrape(): Promise<Offer[]> {
       })
       .catch(() => undefined);
     await page.waitForTimeout(5_000);
+
+    // simple.ripley.cl está detrás de Cloudflare: la carga inicial responde
+    // 307 -> 403 y sirve un interstitial ("Un momento… estamos comprobando tu
+    // navegador") con título "Un momento…". Medido: sigue mostrando ese
+    // interstitial pasados 20s de espera y con `navigator.webdriver`
+    // enmascarado -la única mitigación posible sin tocar otros ficheros o
+    // añadir dependencias-. Si sigue ahí, ni la vía JSON ni la vía DOM van a
+    // encontrar nunca productos: se corta ya con un motivo preciso en vez de
+    // agotar el timeout completo para acabar en el mismo "no hay productos".
+    const challenge = await page.evaluate(() => ({
+      title: document.title,
+      text: document.body.innerText.slice(0, 200),
+    }));
+    if (/un momento|comprobando tu navegador|verifica que tú eres un ser humano/i.test(
+      `${challenge.title} ${challenge.text}`
+    )) {
+      throw new Error(
+        `bloqueado por el challenge anti-bot de Cloudflare de simple.ripley.cl ` +
+          `(HTTP 403 en la carga inicial, interstitial "Un momento…" persiste tras espera; ` +
+          `title="${challenge.title}")`
+      );
+    }
 
     const fromDom = (await page.evaluate(() => {
       const results: { sku: string; title: string; price: string; url: string }[] = [];

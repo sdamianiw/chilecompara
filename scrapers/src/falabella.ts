@@ -58,6 +58,47 @@ function comparablePrice(prices: FalabellaPrice[] | undefined): number | null {
   return pick(["internetPrice", "eventPrice"]) ?? pick(["normalPrice"]);
 }
 
+/**
+ * Elige el encoding por respuesta, no por suposición.
+ *
+ * Orden: (1) el charset que declare la cabecera; (2) UTF-8 estricto, que falla
+ * si los bytes no son UTF-8 válido; (3) latin1, que nunca falla. El paso 2 es
+ * el que distingue de verdad: un texto ISO-8859-1 con acentos NO es UTF-8
+ * válido, así que el decodificador estricto lo rechaza y caemos a latin1.
+ */
+function decodeBody(buf: Buffer, contentType: string | null): string {
+  const declared = contentType?.match(/charset=([\w-]+)/i)?.[1]?.toLowerCase();
+  if (declared && /8859|latin1/.test(declared)) return buf.toString("latin1");
+  if (declared === "utf-8" || declared === "utf8") return buf.toString("utf8");
+
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(buf);
+  } catch {
+    return buf.toString("latin1");
+  }
+}
+
+/**
+ * Repara mojibake por título, no por documento.
+ *
+ * Medido: Falabella mezcla los dos encodings DENTRO de la misma respuesta —
+ * unos títulos llegan bien y otros con la firma clásica de UTF-8 leído como
+ * latin1 ("cámara" -> "cÃ¡mara"). Por eso decidir el encoding a nivel de
+ * documento no alcanza: se repara cada cadena por separado, y sólo si muestra
+ * esa firma. Si el resultado no mejora, se devuelve el original intacto.
+ */
+function fixMojibake(s: string): string {
+  if (!/Ã[\x80-\xbf]|Â[\x80-\xbf]/.test(s)) return s;
+  try {
+    const repaired = new TextDecoder("utf-8", { fatal: true }).decode(
+      Buffer.from(s, "latin1")
+    );
+    return repaired;
+  } catch {
+    return s;
+  }
+}
+
 async function fetchPage(page: number): Promise<FalabellaResult[]> {
   const url = page === 1 ? CATEGORY_URL : `${CATEGORY_URL}?page=${page}`;
   const res = await fetch(url, {
@@ -65,10 +106,11 @@ async function fetchPage(page: number): Promise<FalabellaResult[]> {
   });
   if (!res.ok) throw new Error(`HTTP ${res.status} en ${url}`);
 
-  // La página se sirve en ISO-8859-1 (lo declara su propio <meta charSet>).
-  // Decodificarla como UTF-8 destroza los acentos y contamina los títulos, que
-  // son justamente la materia prima de la unificación.
-  const html = Buffer.from(await res.arrayBuffer()).toString("latin1");
+  // El encoding NO es constante: la primera página declara ISO-8859-1 en su
+  // <meta charSet>, pero otras vienen en UTF-8. Fijar uno de los dos rompe los
+  // acentos en el otro ("Batería" -> "Bater?a", o "cámara" -> "cÃ¡mara"), y los
+  // títulos son la materia prima de la unificación. Se decide por respuesta.
+  const html = decodeBody(Buffer.from(await res.arrayBuffer()), res.headers.get("content-type"));
 
   const m = html.match(
     /<script id="__NEXT_DATA__" type="application\/json"[^>]*>([\s\S]*?)<\/script>/
@@ -110,7 +152,7 @@ async function scrape(): Promise<Offer[]> {
       offers.push({
         retailer: RETAILER,
         sku,
-        title,
+        title: fixMojibake(title),
         brand: r.brand,
         priceCLP: price,
         url: r.url ?? CATEGORY_URL,
