@@ -5,12 +5,11 @@ en vivo desde **Falabella, Paris y Ripley**, reconoce cuándo un mismo teléfono
 aparece en más de una tienda aunque cada sitio lo nombre distinto, y lo muestra
 en una sola pantalla con el precio de cada retailer y el más barato destacado.
 
-> **Estado real hoy:** Falabella y Paris entregan datos en vivo — **16 productos
-> se pueden comparar entre ambas**. Ripley no: Cloudflare bloquea de forma
-> intermitente los chunks del micro-frontend que pinta su listado, y un scraper
-> que acierta una de cada tres veces no es un scraper. Su nodo corre igual y
-> reporta la causa. El detalle está en *Limitaciones conocidas*, y no se disimula
-> en ninguna parte: el portal lo muestra en su cabecera.
+> **Estado hoy:** los tres retailers entregan datos en vivo. **44 productos se
+> pueden comparar entre tiendas, 8 de ellos aparecen en las tres.** Paris se lee
+> a través de un proxy público y Ripley necesita una cookie de sesión renovada a
+> mano: ambas cosas están explicadas abajo y se muestran en el portal, no se
+> disimulan.
 
 Todo corre local con un comando. Sin nube, sin cuentas, sin claves.
 
@@ -25,23 +24,32 @@ crudo, y `http://localhost:8081/api/status` dice qué scraper respondió y cuál
 
 ## Resultado
 
-Corriendo contra los catálogos en vivo, el sistema encuentra **16 productos que
-se venden en más de una tienda**, con diferencias reales de hasta **$300.000**.
-Los seis mayores, ordenados por ahorro y sin omitir ninguno del tramo:
+Contra los catálogos en vivo: **168 productos, 273 ofertas, 44 comparables entre
+tiendas y 8 presentes en las tres.** Los ocho que aparecen en Falabella, Paris y
+Ripley a la vez:
 
-| Producto | Falabella | Paris | Ahorro |
-|---|---|---|---|
-| Galaxy S25 Ultra 256 GB | **$849.990** | $1.149.990 | $300.000 |
-| Galaxy S25 Ultra 512 GB | **$999.990** | $1.199.990 | $200.000 |
-| Galaxy A37 256 GB | **$399.990** | $569.990 | $170.000 |
-| Galaxy S26 Ultra 256 GB | **$1.099.990** | $1.249.990 | $150.000 |
-| Galaxy S26 256 GB | $779.990 | **$649.990** | $130.000 |
-| Galaxy S26 Ultra 512 GB | **$1.259.990** | $1.359.990 | $100.000 |
+| Producto | Falabella | Paris | Ripley | Ahorro |
+|---|---|---|---|---|
+| Galaxy S26 256 GB | $779.990 | **$649.990** | $819.990 | $170.000 |
+| Galaxy S26 Ultra 256 GB | **$1.099.990** | $1.249.990 | $1.219.990 | $150.000 |
+| Redmi Note 15 5G 256 GB | $279.990 | $269.990 | **$179.990** | $100.000 |
+| Redmi Note 15 Pro 5G 256 GB | **$279.990** | $319.990 | $339.990 | $60.000 |
+| Galaxy S25 256 GB | $599.990 | **$549.990** | $549.990 | $50.000 |
+| iPhone 15 | $699.990 | **$669.990** | $719.990 | $50.000 |
+| Honor 400 Smart 6+256 GB | $209.990 | **$189.990** | $199.990 | $20.000 |
+| Moto G06 128 GB | $94.990 | **$89.990** | $89.990 | $5.000 |
 
-**Paris gana en 7 de los 16**, así que no es que una tienda sea siempre más
-barata: es exactamente el caso en que un comparador paga la pena. Y los iPhone
-cruzan pese a que Falabella los lista sin capacidad (`IPhone 16`, sin GB), gracias
-a la fusión de dos niveles que se explica más abajo.
+**Cada tienda gana en algún producto.** Falabella es la más barata en el S26
+Ultra y en el Redmi Note 15 Pro; Ripley arrasa en el Redmi Note 15 con $100.000
+menos; Paris gana en la mitad de la tabla. Esa es exactamente la tesis del
+cliente: no hay una tienda barata, hay un precio barato por producto, y sin
+comparar no se ve.
+
+Fuera de la tabla, la mayor diferencia del catálogo completo son **$300.000** en
+el Galaxy S25 Ultra 256 GB (Falabella $849.990 vs Paris $1.149.990).
+
+Y los iPhone cruzan pese a que Falabella los lista sin capacidad (`IPhone 15`,
+sin GB): eso lo resuelve la fusión de dos niveles que se explica más abajo.
 
 ---
 
@@ -63,13 +71,13 @@ flowchart LR
     subgraph sitios["Sitios en vivo"]
         F["falabella.com<br/>HTTP 200 · SSR"]
         P["paris.cl<br/>Next.js + Constructor.io<br/>HTTP 405 · AWS WAF"]
-        R["simple.ripley.cl<br/>Module Federation<br/>Cloudflare intermitente"]
+        R["simple.ripley.cl<br/>Next.js SSR<br/>Cloudflare + cookie"]
     end
 
     subgraph nodos["Un contenedor por retailer · TypeScript"]
         SF["scraper-falabella<br/>fetch + __NEXT_DATA__"]
         SP["scraper-paris<br/>directo o proxy de lectura"]
-        SR["scraper-ripley<br/>Chromium + reintento"]
+        SR["scraper-ripley<br/>Chromium + __NEXT_DATA__"]
     end
 
     subgraph servicios["Un contenedor por servicio"]
@@ -122,7 +130,7 @@ Se midió antes de decidir nada, con `curl` y un User-Agent de Chrome:
 |---|---|---|
 | `falabella.com` | **HTTP 200**, 2.5 MB de HTML con `__NEXT_DATA__` y 56 productos dentro | **No** |
 | `paris.cl` | **HTTP 405** + `<title>Human Verification</title>` con `window.gokuProps` y `awsWafCookieDomainList` | **Sí** |
-| `simple.ripley.cl` | **HTTP 403**, shell `<html class="no-js">` de 140 KB, cero markup de producto | **Sí** |
+| `simple.ripley.cl` | **HTTP 403**, shell `<html class="no-js">` de 140 KB, cero markup de producto | **Sí** (y además cookie de sesión) |
 
 Son **dos**, no uno. Falabella se libra porque renderiza en el servidor con
 Next.js y deja el catálogo entero serializado en el HTML: un GET basta. Paris
@@ -268,86 +276,47 @@ Los tests que más importan, porque cubren los errores caros:
 Esta sección es tan importante como el resto del README. Declarar el límite de
 lo verificado es más fiable que declarar cobertura total.
 
-### 1. Ripley no entrega datos hoy, y no es un bug del scraper
+### 1. Los tres retailers funcionan, pero dos con una muleta
 
-El nodo está construido, corre, y falla de forma limpia registrando el motivo
-real en Redis — visible en `/api/status` y en la cabecera del portal. Lo que lo
-detiene es una defensa comercial anti-bot, medida, no supuesta. Paris tenía la
-misma clase de bloqueo y se resolvió por la vía descrita en la decisión 2:
+Ninguno de los tres se deja raspar de frente, y cada uno se resolvió distinto:
 
-| Retailer | Defensa | Evidencia |
+| Retailer | Defensa medida | Cómo se accede hoy |
 |---|---|---|
-| Paris *(resuelto)* | **AWS WAF con CAPTCHA interactivo** | El HTML carga `captcha.js` y renderiza "Let's confirm you are human" con un puzzle de imágenes. No es un challenge JS silencioso que un navegador resuelva solo. Probado headless y headed con `xvfb-run`: ambos bloqueados. **Se rodea con el proxy de lectura** (decisión 2) |
-| Ripley *(sin salida)* | **Cloudflare, y encima intermitente** | Ver abajo: el bloqueo no está donde parecía |
+| Falabella | ninguna | GET directo. Renderiza en servidor y embebe el catálogo en `__NEXT_DATA__` |
+| Paris | **AWS WAF con CAPTCHA de imágenes** (`captcha.js`, "Let's confirm you are human"). Headless y headed con `xvfb-run`: ambos bloqueados | **Proxy de lectura público** (`r.jina.ai`), declarado en el portal |
+| Ripley | **Cloudflare**: 403 y shell `class="no-js"` sin producto | **Navegador + cookie de sesión** que una persona obtiene una vez |
 
-**La causa raíz de Ripley resultó ser otra, y encontrarla costó tres intentos.**
-El primero fue un falso diagnóstico propio: el scraper apuntaba a
-`/tecno/celulares/smartphones`, una ruta **muerta** que responde "La página que
-buscas ya no se encuentra disponible" — y el interstitial de Cloudflare tapaba
-ese 404, así que parecía un bloqueo cuando además era una URL inexistente. La
-ruta viva es el buscador, `/search/smartphones`.
+**Las dos muletas tienen coste y hay que decirlo:**
 
-Con la URL correcta y una cookie de sesión, Cloudflare **sí se pasa**. Y ahí
-apareció el problema de verdad: `simple.ripley.cl` es una app Next.js que arma
-la página con **Module Federation** (Webpack 5), y el listado lo pinta un remote
-separado (`findabilitycomponent`). La página principal y su `remoteEntry.js`
-cargan con 200, pero Cloudflare devuelve **403 de forma intermitente a los chunks
-internos de ese remote**. Cuando eso pasa, la consola dice `findability offline`,
-React tira los errores #418/#423 y `__NEXT_DATA__.props.pageProps
-.findabilityProps.catalog` llega en `null`: el DOM queda vacío sin que nada
-parezca haber fallado.
+- **El proxy de Paris es un intermediario.** Entrega el catálogo real y del
+  momento en que se pide — no es caché ni fixture — pero no es nuestra IP la que
+  habla con Paris. Queda escrito en el estado del scraper y visible en el portal.
+- **La cookie de Ripley caduca en ~30 minutos.** Medido en esta sesión: el
+  scraper pasó el challenge, y un ciclo después volvió el interstitial "Un
+  momento…". Sirve para una demo y para un pinchazo puntual; **no es una
+  integración desatendida.**
 
-Esperar más no sirve — hay que **recargar** para reintentar la carga de esos
-chunks. El scraper lo hace hasta tres veces. En las pruebas el remote montaba en
-un 30-40 % de las cargas; en las últimas corridas, en ninguna. Un scraper que
-funciona una de cada tres veces no es un scraper, así que el nodo queda
-declarando el motivo en vez de fingir un resultado.
+**Y el hallazgo que costó tres intentos:** el bloqueo de Ripley no estaba donde
+parecía. Primero, la ruta `/tecno/celulares/smartphones` está **muerta** — el
+interstitial de Cloudflare tapaba un 404, así que parecía bloqueo cuando además
+era una URL inexistente; la ruta viva es `/search/smartphones`. Segundo, con la
+URL correcta y cookie, Cloudflare **sí se pasa**. Tercero, el listado lo pinta un
+remote de **Module Federation** (`findabilitycomponent`) cuyos chunks internos
+reciben 403 intermitente: el DOM queda vacío sin que nada parezca fallar, y sólo
+monta un 30-40 % de las veces.
 
-Se probó además **`playwright-extra` con el plugin stealth**, que es la
-mitigación estándar contra la detección de automatización. Resultado negativo en
-los dos sitios, con el bloqueo ocurriendo en la misma etapa que sin él y el
-mismo mensaje de log. Tiene sentido: stealth ataca *huellas de automatización*,
-y aquí el obstáculo no es una huella sino un puzzle de imágenes (Paris) y un
-challenge gestionado en servidor (Ripley). El proxy de lectura tampoco pasa el
-challenge de Ripley: devuelve 200, pero con el interstitial de Cloudflare dentro. Las dependencias se revirtieron
-después de medir el resultado — un stealth que no destraba nada es peso muerto
-en el entregable.
+La solución fue **dejar de mirar el DOM**. El catálogo ya viene renderizado por
+el servidor en `__NEXT_DATA__`, en `props.pageProps.findabilityProps.data
+.products`, con marca, sku y precio como campos propios. Depender del HTML del
+servidor en vez del render del cliente convirtió un scraper que acertaba una de
+cada tres veces en uno determinista: **102 ofertas, todas las corridas.**
 
-#### La salida honesta: aislar el paso humano
-
-Cuando un proveedor pone un desafío que **exige una persona**, hay tres caminos:
-fingir que no existe, falsear los datos, o aislar el paso manual y documentarlo.
-Los dos primeros son mentira; el tercero es lo que se entrega a un cliente real.
-
-Los dos scrapers aceptan una cookie de sesión por variable de entorno. Alguien
-resuelve el desafío **una vez** en su navegador, exporta la cookie, y a partir
-de ahí el contenedor hace peticiones reales al sitio real sin intervención:
-
-```bash
-# En el navegador: abrir el sitio, pasar el desafío,
-# F12 -> Aplicación -> Cookies -> copiar el valor.
-export PARIS_WAF_COOKIE="aws-waf-token=<valor>"
-export RIPLEY_CF_COOKIE="cf_clearance=<valor>"
-docker compose up
-```
-
-Si las variables no están, no pasa nada: el scraper intenta la vía automática y,
-si lo bloquean, registra el motivo. **Nunca inventa datos.** Esa es la línea que
-no se cruza: el requisito pide datos en vivo, y una cookie de sesión sigue
-dando datos en vivo — un fixture, no.
-
-Pasarlos de forma completamente autónoma requiere un servicio de pago de
-resolución de CAPTCHA, más probablemente una IP residencial. Ambas cosas quedan
-fuera del alcance de este ejercicio, y ninguna hace mejor al sistema: la
-arquitectura ya
-trata a cada retailer como un nodo intercambiable, así que el día que exista una
-vía legítima de acceso — un acuerdo comercial, una API de partner — sólo cambia
-el cuerpo de un scraper, no el diseño.
-
-**Consecuencia honesta:** el portal compara **dos** de los tres retailers. La
-lógica de unificación no distingue entre dos y tres, y hay un test que la ejerce
-con las tres tiendas nombrando el mismo teléfono de tres formas distintas — pero
-el tercer retailer, hoy, no entra.
+Se probó además `playwright-extra` con el plugin stealth, la mitigación estándar
+contra la detección de automatización: **negativo en ambos sitios**, mismo
+bloqueo en la misma etapa. Tiene sentido — stealth ataca huellas de
+automatización, y aquí el obstáculo era un puzzle de imágenes y un challenge
+gestionado en servidor. Las dependencias se revirtieron tras medirlo: un stealth
+que no destraba nada es peso muerto.
 
 ### 2. Decisiones de unificación con coste conocido
 

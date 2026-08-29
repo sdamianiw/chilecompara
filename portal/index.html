@@ -16,7 +16,9 @@
 
 <main>
   <div class="controls">
-    <input id="search" type="search" placeholder="Buscar modelo, marca…" autocomplete="off">
+    <label class="sr-only" for="search">Buscar por modelo o marca</label>
+    <input id="search" type="search" placeholder="Buscar modelo, marca…"
+           aria-label="Buscar por modelo o marca" autocomplete="off">
     <label class="toggle">
       <input id="only-multi" type="checkbox" checked>
       Solo productos comparables (en más de una tienda)

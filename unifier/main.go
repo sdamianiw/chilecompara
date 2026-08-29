@@ -239,7 +239,14 @@ func buildProduct(g *group) Product {
 	}
 
 	rows := make([]RetailerOffer, 0, len(best))
+
+	// El mínimo se inicializa con la PRIMERA oferta, no con 0 usado de centinela.
+	// Con el centinela, un precio 0 que se colara dejaría `minPrice` clavado en 0
+	// para siempre: el ahorro se inflaría hasta el precio máximo y el badge "más
+	// barato" se lo llevaría el dato basura. Hoy `rebuild` filtra los precios <= 0,
+	// pero la corrección de esta pantalla no debe depender de un filtro remoto.
 	minPrice, maxPrice := 0, 0
+	first := true
 	for _, o := range best {
 		rows = append(rows, RetailerOffer{
 			Retailer: o.Retailer,
@@ -247,12 +254,13 @@ func buildProduct(g *group) Product {
 			PriceCLP: o.PriceCLP,
 			URL:      o.URL,
 		})
-		if minPrice == 0 || o.PriceCLP < minPrice {
+		if first || o.PriceCLP < minPrice {
 			minPrice = o.PriceCLP
 		}
-		if o.PriceCLP > maxPrice {
+		if first || o.PriceCLP > maxPrice {
 			maxPrice = o.PriceCLP
 		}
+		first = false
 	}
 
 	sort.Slice(rows, func(a, b int) bool { return rows[a].PriceCLP < rows[b].PriceCLP })

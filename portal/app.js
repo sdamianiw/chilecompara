@@ -77,14 +77,24 @@ function escapeHtml(s) {
   ));
 }
 
+/**
+ * Normaliza para buscar: minúsculas y sin tildes.
+ *
+ * Sin esto, escribir "camara" no encuentra los productos cuyo título dice
+ * "Cámara" — y nadie teclea las tildes en un buscador.
+ */
+function foldAccents(s) {
+  return String(s ?? "").normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+}
+
 function render() {
-  const q = $search.value.trim().toLowerCase();
+  const q = foldAccents($search.value.trim());
   const onlyMulti = $onlyMulti.checked;
 
   const shown = catalog.products.filter((p) => {
     if (onlyMulti && p.retailerCount < 2) return false;
     if (!q) return true;
-    return `${p.displayName} ${p.brand} ${p.model}`.toLowerCase().includes(q);
+    return foldAccents(`${p.displayName} ${p.brand} ${p.model}`).includes(q);
   });
 
   $grid.replaceChildren(...shown.map(card));
