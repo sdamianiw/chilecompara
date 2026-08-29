@@ -1,0 +1,86 @@
+name: chilecompara
+
+services:
+  # ---- Almacenamiento (único permitido): Redis con AOF y volumen persistente
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--dir", "/data"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 2s
+      retries: 20
+    networks: [chilecompara]
+
+  # ---- Un nodo dedicado POR RETAILER (TypeScript: son los que tocan los sitios)
+  scraper-falabella:
+    build: { context: ./scrapers, dockerfile: Dockerfile.http }
+    command: ["node", "dist/falabella.js"]
+    environment:
+      REDIS_URL: redis://redis:6379
+      SCRAPE_INTERVAL_SEC: "900"
+    depends_on:
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+    networks: [chilecompara]
+
+  scraper-paris:
+    build: { context: ./scrapers, dockerfile: Dockerfile.browser }
+    command: ["node", "dist/paris.js"]
+    environment:
+      REDIS_URL: redis://redis:6379
+      SCRAPE_INTERVAL_SEC: "900"
+    depends_on:
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+    networks: [chilecompara]
+
+  scraper-ripley:
+    build: { context: ./scrapers, dockerfile: Dockerfile.browser }
+    command: ["node", "dist/ripley.js"]
+    environment:
+      REDIS_URL: redis://redis:6379
+      SCRAPE_INTERVAL_SEC: "900"
+    depends_on:
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+    networks: [chilecompara]
+
+  # ---- Un nodo dedicado por SERVICIO (Go: procesamiento y backend)
+  unifier:
+    build: ./unifier
+    environment:
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+    networks: [chilecompara]
+
+  api:
+    build: ./api
+    environment:
+      REDIS_URL: redis://redis:6379
+      PORT: "8080"
+    ports:
+      - "8081:8080"
+    depends_on:
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+    networks: [chilecompara]
+
+  portal:
+    build: ./portal
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks: [chilecompara]
+
+volumes:
+  redis-data:
+
+networks:
+  chilecompara:

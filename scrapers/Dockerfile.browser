@@ -1,0 +1,15 @@
+# Scrapers que SÍ necesitan navegador (Paris: AWS WAF · Ripley: challenge JS).
+# Se usa la imagen oficial de Playwright porque trae Chromium y sus dependencias
+# de sistema ya instaladas: instalarlas a mano es el rabbit hole clásico.
+FROM mcr.microsoft.com/playwright:v1.49.1-noble
+
+WORKDIR /app
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+
+COPY package.json tsconfig.json ./
+RUN npm install --no-audit --no-fund
+
+COPY src ./src
+RUN npx tsc
+
+CMD ["node", "dist/paris.js"]

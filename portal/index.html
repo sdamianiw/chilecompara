@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChileCompara · precios de smartphones</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header>
+  <h1>ChileCompara</h1>
+  <p class="tagline">El mismo smartphone, lo que cobra cada tienda hoy.</p>
+  <div id="summary" class="summary">Cargando catálogo…</div>
+  <div id="retailers" class="retailers"></div>
+</header>
+
+<main>
+  <div class="controls">
+    <input id="search" type="search" placeholder="Buscar modelo, marca…" autocomplete="off">
+    <label class="toggle">
+      <input id="only-multi" type="checkbox" checked>
+      Solo productos comparables (en más de una tienda)
+    </label>
+  </div>
+  <div id="grid" class="grid"></div>
+  <p id="empty" class="empty" hidden></p>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
