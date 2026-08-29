@@ -47,6 +47,8 @@ services:
       REDIS_URL: redis://redis:6379
       SCRAPE_INTERVAL_SEC: "900"
       RIPLEY_CF_COOKIE: ${RIPLEY_CF_COOKIE:-}
+      # Cloudflare valida la cookie contra el User-Agent que la obtuvo.
+      SCRAPER_UA: ${SCRAPER_UA:-}
     depends_on:
       redis: { condition: service_healthy }
     restart: unless-stopped

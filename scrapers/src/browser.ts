@@ -1,6 +1,10 @@
 import { chromium, type Browser, type BrowserContext } from "playwright";
 
+// Cloudflare ata su cookie de challenge al User-Agent EXACTO del navegador que
+// la obtuvo: si el contenedor se presenta distinto, la cookie se rechaza. Por eso
+// el UA es configurable — quien exporta la cookie exporta también su UA.
 const UA =
+  process.env.SCRAPER_UA ??
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
 /**

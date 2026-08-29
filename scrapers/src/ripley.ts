@@ -3,7 +3,12 @@ import { runLoop } from "./store";
 import type { Offer } from "./types";
 
 const RETAILER = "ripley";
-const CATEGORY = "https://simple.ripley.cl/tecno/celulares/smartphones?s=mdco";
+// La ruta de categoría `/tecno/celulares/smartphones` está MUERTA: devuelve
+// "La página que buscas ya no se encuentra disponible". El challenge de
+// Cloudflare tapaba ese 404, así que durante un rato el scraper parecía
+// bloqueado cuando además apuntaba a una URL inexistente. El buscador sí lista.
+const CATEGORY =
+  "https://simple.ripley.cl/search/smartphones?sort=relevance_desc&page=1";
 
 /**
  * Ripley devuelve HTTP 403 y un shell `<html class="no-js">` a cualquier
