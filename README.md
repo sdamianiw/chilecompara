@@ -231,18 +231,37 @@ usuario, no algo que ocultar detrás de una pantalla vacía.
 
 ## Verificación
 
+Todo esto se corre contra el sistema real, no contra la memoria de haberlo hecho.
+
 ```bash
-# Tests de unificación (no requiere Go instalado)
+# 1. Los 17 tests de unificación. No necesitas Go instalado.
 docker run --rm -v "$(pwd)/unifier:/src" -w /src golang:1.23-alpine go test -v ./...
 
-# Qué respondió cada retailer
+# 2. Qué respondió cada retailer, y por qué vía
 curl -s localhost:8081/api/status
 
-# Persistencia: el catálogo sobrevive al reinicio de Redis
-docker compose restart redis && sleep 5 && curl -s localhost:8081/api/products | head -c 200
+# 3. Persistencia real: el catálogo sobrevive a que se caiga todo.
+#    Se levanta SÓLO Redis, sin ningún scraper que pueda repoblarlo.
+docker compose down                 # sin -v: el volumen se conserva
+docker compose up -d redis
+docker compose exec redis redis-cli hlen offers    # > 0
+docker compose exec redis redis-cli strlen catalog # > 0
+docker compose up -d                # el resto
+
+# 4. Que un tercero pueda levantarlo: clona en limpio y corre los tests.
+git clone https://github.com/sdamianiw/chilecompara.git /tmp/cc && cd /tmp/cc
+docker run --rm -v "$(pwd)/unifier:/src" -w /src golang:1.23-alpine go test ./...
 ```
 
----
+El punto 4 no es decorativo: la primera versión de este repo **fallaba** ahí
+porque `go.sum` estaba en el `.gitignore`, así que los tests pasaban en la
+máquina donde se escribieron y en ninguna otra. Lo encontró una revisión
+adversarial del entregable, no yo.
+
+Los tests que más importan, porque cubren los errores caros:
+`TestUnifyCrossRetailer` (tres tiendas, un teléfono, el más barato correcto) ·
+`TestRefurbishedDoesNotUndercutNew` · `TestAmbiguousStorageDoesNotMerge` ·
+`TestAccessoriesAndBundlesAreExcluded` · `TestScreenSizeDoesNotSplitTheProduct`.
 
 ## Limitaciones conocidas
 
