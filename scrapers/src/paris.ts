@@ -62,13 +62,29 @@ async function scrape(): Promise<Offer[]> {
     await page.goto(HOME, { waitUntil: "domcontentloaded", timeout: 45_000 });
     await page.waitForTimeout(6_000);
 
-    const html = await page.content();
+    let html = await page.content();
     if (html.includes("gokuProps") || html.includes("Human Verification")) {
       // El desafío se resuelve solo en un navegador real, pero necesita tiempo
       // y a veces una segunda carga.
       await page.waitForTimeout(6_000);
       await page.goto(HOME, { waitUntil: "domcontentloaded", timeout: 45_000 });
       await page.waitForTimeout(4_000);
+      html = await page.content();
+    }
+
+    // Verificado a mano (docker run interactivo, con y sin xvfb-run headed):
+    // AWS WAF no sirve aquí un challenge JS silencioso, sino un CAPTCHA
+    // interactivo real -- carga captcha.js y renderiza "Let's confirm you are
+    // human" con un botón "Begin" que abre un puzzle de imágenes. Reintentar
+    // la carga o esperar más no lo resuelve: hace falta clic humano + puzzle
+    // visual, o un servicio de resolución de CAPTCHA (fuera de alcance). No
+    // tiene sentido seguir insistiendo en cada vuelta contra los endpoints:
+    // todos van a devolver el mismo 405 mientras el reto siga sin resolver.
+    if (html.includes("captcha.js") || html.includes("Let's confirm you are human")) {
+      throw new Error(
+        "bloqueado por AWS WAF: CAPTCHA interactivo (Human Verification / captcha.js), " +
+          "no un challenge JS silencioso -- requiere resolución humana o servicio de CAPTCHA solving, fuera de alcance"
+      );
     }
 
     let products: VtexProduct[] = [];

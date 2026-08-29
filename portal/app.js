@@ -6,6 +6,11 @@ const RETAILER_LABEL = { falabella: "Falabella", paris: "Paris", ripley: "Ripley
 
 let catalog = { products: [] };
 
+// El filtro "solo comparables" se ajusta a lo que hay, una única vez. Si ninguna
+// tienda cruza con otra, dejarlo marcado abriría el portal en blanco: el usuario
+// vería una pantalla vacía en vez del catálogo que sí tenemos.
+let filterInitialised = false;
+
 const $grid = document.getElementById("grid");
 const $summary = document.getElementById("summary");
 const $retailers = document.getElementById("retailers");
@@ -81,6 +86,11 @@ async function load() {
     ]);
     catalog = await catRes.json();
     const status = await statusRes.json();
+
+    if (!filterInitialised && catalog.productCount > 0) {
+      $onlyMulti.checked = catalog.multiRetailer > 0;
+      filterInitialised = true;
+    }
 
     $summary.textContent = catalog.productCount
       ? `${catalog.productCount} productos · ${catalog.offerCount} ofertas · ${catalog.multiRetailer} comparables entre tiendas`

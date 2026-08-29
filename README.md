@@ -201,6 +201,15 @@ que los detiene es una defensa comercial anti-bot, medida, no supuesta:
 | Paris | **AWS WAF con CAPTCHA interactivo** | El HTML carga `captcha.js` y renderiza "Let's confirm you are human" con un puzzle de imágenes. No es un challenge JS silencioso que un navegador resuelva solo. Probado headless y headed con `xvfb-run`: ambos bloqueados. Todos los endpoints VTEX devuelven HTTP 405 mientras el reto siga abierto |
 | Ripley | **Cloudflare managed challenge** | 307 → 403 con `server: cloudflare`; el DOM renderizado es el interstitial "Un momento… estamos comprobando tu navegador", nunca el catálogo. Enmascarar `navigator.webdriver` no cambia nada |
 
+Se probó además **`playwright-extra` con el plugin stealth**, que es la
+mitigación estándar contra la detección de automatización. Resultado negativo en
+los dos sitios, con el bloqueo ocurriendo en la misma etapa que sin él y el
+mismo mensaje de log. Tiene sentido: stealth ataca *huellas de automatización*,
+y aquí el obstáculo no es una huella sino un puzzle de imágenes (Paris) y un
+challenge gestionado en servidor (Ripley). Las dependencias se revirtieron
+después de medir el resultado — un stealth que no destraba nada es peso muerto
+en el entregable.
+
 Pasarlos requiere resolución humana del CAPTCHA o un servicio de pago de
 resolución, más probablemente una IP residencial. Ambas cosas quedan fuera del
 alcance de este ejercicio, y ninguna hace mejor al sistema: la arquitectura ya
@@ -238,8 +247,9 @@ de verdad.
 
 ### 4. Lo que NO pude verificar
 
-- **Si `playwright-extra` con el plugin stealth destrabaría Paris o Ripley.** Es
-  la única palanca no agotada.
+- **Si un servicio de resolución de CAPTCHA o una IP residencial destrabarían
+  Paris y Ripley.** Es la única vía técnica no agotada, y queda fuera de alcance
+  a propósito. (Stealth sí se probó: negativo, ver arriba.)
 - **Si el bloqueo de Paris es 100 % consistente.** Se probó 3 veces (2 headless,
   1 headed) y las 3 fallaron; no se descarta que WAF deje pasar ocasionalmente.
 - **La forma real de los títulos de Paris y Ripley.** Todo el diseño de la clave
