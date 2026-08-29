@@ -187,4 +187,77 @@ docker compose restart redis && sleep 5 && curl -s localhost:8081/api/products |
 
 ## Limitaciones conocidas
 
-*(sección completada tras la verificación final — ver más abajo)*
+Esta sección es tan importante como el resto del README. Declarar el límite de
+lo verificado es más fiable que declarar cobertura total.
+
+### 1. Paris y Ripley no entregan datos hoy, y no es un bug del scraper
+
+Los dos nodos están construidos, corren, y fallan de forma limpia registrando el
+motivo real en Redis — visible en `/api/status` y en la cabecera del portal. Lo
+que los detiene es una defensa comercial anti-bot, medida, no supuesta:
+
+| Retailer | Defensa | Evidencia |
+|---|---|---|
+| Paris | **AWS WAF con CAPTCHA interactivo** | El HTML carga `captcha.js` y renderiza "Let's confirm you are human" con un puzzle de imágenes. No es un challenge JS silencioso que un navegador resuelva solo. Probado headless y headed con `xvfb-run`: ambos bloqueados. Todos los endpoints VTEX devuelven HTTP 405 mientras el reto siga abierto |
+| Ripley | **Cloudflare managed challenge** | 307 → 403 con `server: cloudflare`; el DOM renderizado es el interstitial "Un momento… estamos comprobando tu navegador", nunca el catálogo. Enmascarar `navigator.webdriver` no cambia nada |
+
+Pasarlos requiere resolución humana del CAPTCHA o un servicio de pago de
+resolución, más probablemente una IP residencial. Ambas cosas quedan fuera del
+alcance de este ejercicio, y ninguna hace mejor al sistema: la arquitectura ya
+trata a cada retailer como un nodo intercambiable, así que el día que exista una
+vía legítima de acceso — un acuerdo comercial, una API de partner — sólo cambia
+el cuerpo de un scraper, no el diseño.
+
+**Consecuencia honesta:** con un solo retailer respondiendo, el portal muestra el
+catálogo real de Falabella pero **no hay comparación cruzada que enseñar**. La
+lógica de unificación sí está probada contra ese caso con tests que simulan los
+tres retailers con nombres distintos para el mismo teléfono.
+
+### 2. Decisiones de unificación con coste conocido
+
+- **La generación de red se descarta** (`5G`, `LTE`). Una tienda escribe "Redmi
+  Note 15 Pro 5G" y otra "Redmi Note 15 Pro" para el mismo aparato, así que
+  conservarla hundiría la tasa de cruce. El coste: un "Galaxy A17 LTE" y un
+  "Galaxy A17 5G", que sí son modelos distintos, colapsan en una tarjeta.
+- **Los números sueltos de ficha técnica sobreviven.** "Snapdragon 8 Elite Gen 5"
+  pierde las palabras pero deja un "8" y un "5" en el modelo, lo que parte el
+  Xiaomi 17 en dos tarjetas. Se intentó descartar números pequeños y el test de
+  "Galaxy Z Flip 8" lo refutó: ahí el 8 **es** el modelo. Se revirtió a
+  propósito — una tarjeta duplicada es un defecto menor que un nombre de producto
+  destruido.
+- **El vocabulario de marcas y colores es finito.** Una marca nueva cae al
+  fallback (el primer token útil del título hace de marca), lo que funciona pero
+  es más frágil que el campo estructurado. Un color que no esté en la lista
+  parte la clave.
+
+### 3. Cobertura del catálogo
+
+Se leen 3 páginas de la categoría de smartphones de Falabella, no el catálogo
+completo. Suficiente para probar la tesis; insuficiente para ser un comparador
+de verdad.
+
+### 4. Lo que NO pude verificar
+
+- **Si `playwright-extra` con el plugin stealth destrabaría Paris o Ripley.** Es
+  la única palanca no agotada.
+- **Si el bloqueo de Paris es 100 % consistente.** Se probó 3 veces (2 headless,
+  1 headed) y las 3 fallaron; no se descarta que WAF deje pasar ocasionalmente.
+- **La forma real de los títulos de Paris y Ripley.** Todo el diseño de la clave
+  canónica está calibrado contra el catálogo de Falabella. La tasa de cruce real
+  entre tiendas es una extrapolación, no una medición.
+- **El comportamiento con el catálogo completo.** Se midió sobre ~154 ofertas.
+
+---
+
+## Próximos pasos
+
+1. **Acceso legítimo a Paris y Ripley**: feed de partner o acuerdo comercial. Es
+   la única vía sostenible; pelear contra el anti-bot es una carrera que se
+   pierde sola y no le da valor al cliente.
+2. **Historial de precios**: hoy sólo existe la foto de ahora. Redis ya persiste;
+   guardar series temporales por producto habilita alertas de bajada, que es
+   donde está el negocio real de un comparador.
+3. **Medir la calidad de la unificación**: un conjunto etiquetado a mano de
+   pares "mismo producto / distinto producto" convierte la clave canónica de algo
+   que parece funcionar en algo con precisión y cobertura medidas.
+4. **Ampliar la cobertura**: paginar el catálogo entero y añadir categorías.
