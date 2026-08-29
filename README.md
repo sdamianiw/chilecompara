@@ -210,9 +210,33 @@ challenge gestionado en servidor (Ripley). Las dependencias se revirtieron
 después de medir el resultado — un stealth que no destraba nada es peso muerto
 en el entregable.
 
-Pasarlos requiere resolución humana del CAPTCHA o un servicio de pago de
-resolución, más probablemente una IP residencial. Ambas cosas quedan fuera del
-alcance de este ejercicio, y ninguna hace mejor al sistema: la arquitectura ya
+#### La salida honesta: aislar el paso humano
+
+Cuando un proveedor pone un desafío que **exige una persona**, hay tres caminos:
+fingir que no existe, falsear los datos, o aislar el paso manual y documentarlo.
+Los dos primeros son mentira; el tercero es lo que se entrega a un cliente real.
+
+Los dos scrapers aceptan una cookie de sesión por variable de entorno. Alguien
+resuelve el desafío **una vez** en su navegador, exporta la cookie, y a partir
+de ahí el contenedor hace peticiones reales al sitio real sin intervención:
+
+```bash
+# En el navegador: abrir el sitio, pasar el desafío,
+# F12 -> Aplicación -> Cookies -> copiar el valor.
+export PARIS_WAF_COOKIE="aws-waf-token=<valor>"
+export RIPLEY_CF_COOKIE="cf_clearance=<valor>"
+docker compose up
+```
+
+Si las variables no están, no pasa nada: el scraper intenta la vía automática y,
+si lo bloquean, registra el motivo. **Nunca inventa datos.** Esa es la línea que
+no se cruza: el requisito pide datos en vivo, y una cookie de sesión sigue
+dando datos en vivo — un fixture, no.
+
+Pasarlos de forma completamente autónoma requiere un servicio de pago de
+resolución de CAPTCHA, más probablemente una IP residencial. Ambas cosas quedan
+fuera del alcance de este ejercicio, y ninguna hace mejor al sistema: la
+arquitectura ya
 trata a cada retailer como un nodo intercambiable, así que el día que exista una
 vía legítima de acceso — un acuerdo comercial, una API de partner — sólo cambia
 el cuerpo de un scraper, no el diseño.

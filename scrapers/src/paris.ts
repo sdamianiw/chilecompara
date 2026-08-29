@@ -1,4 +1,4 @@
-import { openBrowser, parseCLP } from "./browser";
+import { applyCookies, openBrowser, parseCLP } from "./browser";
 import { runLoop } from "./store";
 import type { Offer } from "./types";
 
@@ -55,6 +55,12 @@ function priceOf(p: VtexProduct): number | null {
 async function scrape(): Promise<Offer[]> {
   const { browser, context } = await openBrowser();
   try {
+    // Si alguien resolvió el desafío en su navegador y exportó la cookie, se
+    // usa esa sesión. Los datos siguen siendo del sitio real y en vivo: lo
+    // único que aporta el humano es haber pasado el CAPTCHA una vez.
+    const injected = await applyCookies(context, process.env.PARIS_WAF_COOKIE, ".paris.cl");
+    if (injected > 0) console.log(`[${RETAILER}] usando ${injected} cookie(s) de sesión provistas`);
+
     const page = await context.newPage();
 
     // Primero la home: es donde el challenge de AWS WAF se ejecuta y deja su

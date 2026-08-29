@@ -32,6 +32,9 @@ services:
     environment:
       REDIS_URL: redis://redis:6379
       SCRAPE_INTERVAL_SEC: "900"
+      # Opcional: cookie de sesion obtenida al pasar el CAPTCHA en un navegador.
+      # Sin ella el scraper intenta la via automatica y reporta el bloqueo.
+      PARIS_WAF_COOKIE: ${PARIS_WAF_COOKIE:-}
     depends_on:
       redis: { condition: service_healthy }
     restart: unless-stopped
@@ -43,6 +46,7 @@ services:
     environment:
       REDIS_URL: redis://redis:6379
       SCRAPE_INTERVAL_SEC: "900"
+      RIPLEY_CF_COOKIE: ${RIPLEY_CF_COOKIE:-}
     depends_on:
       redis: { condition: service_healthy }
     restart: unless-stopped

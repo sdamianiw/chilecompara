@@ -1,4 +1,4 @@
-import { openBrowser, parseCLP } from "./browser";
+import { applyCookies, openBrowser, parseCLP } from "./browser";
 import { runLoop } from "./store";
 import type { Offer } from "./types";
 
@@ -72,6 +72,16 @@ async function scrape(): Promise<Offer[]> {
     await context.addInitScript(() => {
       Object.defineProperty(navigator, "webdriver", { get: () => undefined });
     });
+
+    // Misma vía que Paris: una cookie `cf_clearance` obtenida por una persona
+    // al pasar el challenge convierte esto en un scraper autónomo contra el
+    // sitio real. Sin ella, se intenta igual y se reporta el bloqueo.
+    const injected = await applyCookies(
+      context,
+      process.env.RIPLEY_CF_COOKIE,
+      ".ripley.cl"
+    );
+    if (injected > 0) console.log(`[${RETAILER}] usando ${injected} cookie(s) de sesión provistas`);
 
     const page = await context.newPage();
     const fromJson: Harvested[] = [];
