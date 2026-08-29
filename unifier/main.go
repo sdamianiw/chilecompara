@@ -113,6 +113,11 @@ func rebuild(ctx context.Context, rdb *redis.Client) {
 			// Precio cero o negativo no es una ganga, es un dato roto.
 			continue
 		}
+		if IsAccessoryOrBundle(o.Title) {
+			// Un cargador de $17.990 no compite con un smartphone, y el precio de
+			// un pack ("+ kit cámara") no es comparable con el del teléfono solo.
+			continue
+		}
 		offers = append(offers, o)
 	}
 

@@ -100,8 +100,8 @@ func TestUnifyCrossRetailer(t *testing.T) {
 	}
 
 	products := unify(offers)
-	if len(products) == 0 {
-		t.Fatal("no se generó ningún producto")
+	if len(products) != 1 {
+		t.Fatalf("las tres tiendas describen el MISMO teléfono: se esperaba 1 producto, hay %d: %+v", len(products), products)
 	}
 
 	p := products[0]
@@ -139,10 +139,22 @@ func TestAmbiguousStorageDoesNotMerge(t *testing.T) {
 		{Retailer: "paris", SKU: "2", Title: "Apple iPhone 17 Pro 256GB", Brand: "Apple", PriceCLP: 1249990},
 		{Retailer: "paris", SKU: "3", Title: "Apple iPhone 17 Pro 512GB", Brand: "Apple", PriceCLP: 1449990},
 	}
-	for _, p := range unify(ambiguous) {
-		if p.StorageGB == 0 && p.RetailerCount > 1 {
-			t.Fatalf("se fusionó una oferta ambigua: %+v", p)
+	// La aserción original miraba productos con StorageGB == 0, y por eso NO
+	// podía fallar: si la fusión errónea ocurriera, el grupo resultante tendría
+	// la capacidad del destino (256), nunca 0. Un test escrito para pasar.
+	// Lo correcto es exigir que la oferta sin capacidad siga SOLA en su tarjeta.
+	got := unify(ambiguous)
+	orphan := false
+	for _, p := range got {
+		if p.StorageGB == 0 && p.RetailerCount == 1 {
+			orphan = true
 		}
+		if p.StorageGB > 0 && p.RetailerCount > 1 {
+			t.Fatalf("con dos capacidades candidatas no debe fusionarse: %+v", p)
+		}
+	}
+	if !orphan {
+		t.Fatal("la oferta ambigua debía quedar en su propia tarjeta, sin capacidad")
 	}
 
 	unambiguous := []Offer{
@@ -157,5 +169,44 @@ func TestAmbiguousStorageDoesNotMerge(t *testing.T) {
 	}
 	if !found {
 		t.Error("con un único candidato, la oferta sin capacidad debía fusionarse")
+	}
+}
+
+// Un accesorio suelto no compite con un smartphone, y el precio de un pack no es
+// comparable con el del teléfono a secas. Ambos casos aparecieron en el catálogo
+// real: un cargador de $17.990 servido como tarjeta, y un "17 Ultra + kit cámara"
+// cuya tarjeta cotizaba el pack.
+func TestAccessoriesAndBundlesAreExcluded(t *testing.T) {
+	fuera := []string{
+		"Cargador Samsung Ultra Rapido Tipo C 45W",
+		"Celular 600E 8 512GB + Cargador",
+		"17 Ultra 512GB + kit camara",
+		"Barbie Phone + Dos carcasas + Stickers y Charms",
+	}
+	for _, title := range fuera {
+		if !IsAccessoryOrBundle(title) {
+			t.Errorf("debía excluirse y no se excluyó: %q", title)
+		}
+	}
+
+	dentro := []string{
+		"Celular Galaxy S25 Ultra 256GB",
+		"IPhone 17 Pro Max",
+		"Celular Redmi Note 15 Pro 5G 256GB",
+	}
+	for _, title := range dentro {
+		if IsAccessoryOrBundle(title) {
+			t.Errorf("es un teléfono y se excluyó: %q", title)
+		}
+	}
+}
+
+// El tamaño de pantalla en el título no puede partir el producto: Paris escribe
+// «6.3''» y Falabella no, y esa diferencia costaba un cruce real de $130.000.
+func TestScreenSizeDoesNotSplitTheProduct(t *testing.T) {
+	conPantalla := Identify("Smartphone Galaxy S26 5G 256GB 6.3'' Negro", "")
+	sinPantalla := Identify("Celular Galaxy S26 256GB", "SAMSUNG")
+	if conPantalla.Key() != sinPantalla.Key() {
+		t.Errorf("el mismo teléfono quedó en dos claves: %s vs %s", conPantalla.Key(), sinPantalla.Key())
 	}
 }

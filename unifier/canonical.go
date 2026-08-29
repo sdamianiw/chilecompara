@@ -84,6 +84,8 @@ var noiseWords = map[string]bool{
 	"flagship": true, "global": true, "internos": true, "interno": true,
 	"interna": true, "kit": true, "excelente": true, "bueno": true,
 	"muy": true, "estado": true, "grado": true, "libre": true,
+	"nfc": true, "resistente": true, "agua": true, "polvo": true,
+	"pulgada": true, "pulg": true,
 }
 
 // Colores, en los dos idiomas en que aparecen en los catálogos chilenos.
@@ -104,6 +106,31 @@ var colorWords = map[string]bool{
 	"titanium": true, "sage": true, "ivory": true, "obsidian": true,
 	"mocha": true, "jade": true, "sandstone": true, "cosmic": true,
 	"phantom": true, "ultramarine": true, "coral": true, "lila": true,
+	// Nombres comerciales de color. Sin estos, el Galaxy S26 Ultra 512GB aparecía
+	// en CUATRO tarjetas distintas, todas al mismo precio y la misma tienda,
+	// cada una anunciando su propio ahorro.
+	"cobalt": true, "violet": true, "sky": true, "shadow": true, "indigo": true,
+	"ocean": true, "frost": true, "ice": true, "glacier": true, "stone": true,
+	"forest": true, "olive": true, "amber": true, "bronze": true, "copper": true,
+	"charcoal": true, "slate": true, "pearl": true, "onyx": true, "steel": true,
+	"aqua": true, "lime": true, "peach": true, "plum": true, "denim": true,
+	"marble": true, "sunrise": true, "sunset": true, "storm": true, "moonlight": true,
+	"navy": true, "mist": true, "spring": true, "lemon": true, "jet": true,
+}
+
+// Marcadores de accesorio o pack. Una oferta que los lleve NO es un teléfono
+// comparable: o es un accesorio suelto (un cargador de $17.990 compitiendo con
+// smartphones) o es un bundle, y comparar el precio de un pack contra el del
+// teléfono a secas inventa una diferencia que no existe.
+var reAccessory = regexp.MustCompile(
+	`(^|[^a-z])(cargador|carcasa|carcasas|funda|fundas|audifonos|cable|` +
+		`adaptador|protector|mica|lamina|soporte|powerbank|sticker|stickers|` +
+		`charm|charms|kit|earbuds|watch|reloj|smartwatch|parlante|bocina)([^a-z]|$)`,
+)
+
+// IsAccessoryOrBundle decide si una oferta debe quedar fuera del catálogo.
+func IsAccessoryOrBundle(title string) bool {
+	return reAccessory.MatchString(strings.ToLower(accents.Replace(title)))
 }
 
 var accents = strings.NewReplacer(
@@ -123,7 +150,13 @@ var (
 	// mete unos u otros en el título, así que dejarlos partiría el mismo
 	// teléfono en tantas claves como formas de describirlo hay.
 	reSpecNoise  = regexp.MustCompile(`^(\d+(mah|mp|hz|w|mm|ghz|nits|kg|g)|ip\d+)$`)
-	reNonAlnum   = regexp.MustCompile(`[^a-z0-9+]+`)
+	// Tamaño de pantalla: "6.3''", "6,77\"", "6.2 pulgadas". Paris lo pone en el
+	// título y Falabella no. Sin quitarlo, reNonAlnum lo parte en los tokens "6"
+	// y "3", que entran al modelo y hunden el cruce: el Galaxy S26 256GB queda en
+	// dos tarjetas y se pierde un ahorro real de $130.000. Ningún decimal
+	// identifica a un teléfono, así que se van todos.
+	reDecimal  = regexp.MustCompile(`\d+[.,]\d+`)
+	reNonAlnum = regexp.MustCompile(`[^a-z0-9+]+`)
 	reMultiSpace = regexp.MustCompile(`\s+`)
 )
 
@@ -214,6 +247,7 @@ func Identify(title, declaredBrand string) Identity {
 
 	// El "+" ya cumplió su función al separar RAM de almacenamiento; dejarlo
 	// aquí produce tokens como "ram+" que ninguna lista de ruido atrapa.
+	stripped = reDecimal.ReplaceAllString(stripped, " ")
 	cleaned := strings.ReplaceAll(stripped, "+", " ")
 	cleaned = reNonAlnum.ReplaceAllString(cleaned, " ")
 	cleaned = reMultiSpace.ReplaceAllString(cleaned, " ")
@@ -245,7 +279,7 @@ func Identify(title, declaredBrand string) Identity {
 			// "galaxy", "redmi" e "iphone" son marca o submarca, no modelo.
 			continue
 		}
-		if noiseWords[t] || colorWords[t] {
+		if noiseWords[t] || isColor(t) {
 			continue
 		}
 		if reSpecNoise.MatchString(t) {
@@ -283,6 +317,31 @@ func Identify(title, declaredBrand string) Identity {
 		StorageGB: storage,
 		Condition: condition,
 	}
+}
+
+// isColor reconoce también los colores COMPUESTOS que los catálogos escriben
+// pegados: "icyblue", "midnightblack", "skyblue". Enumerarlos uno a uno es una
+// carrera perdida — cada temporada trae nombres nuevos —, así que basta con que
+// el token sea alfabético y contenga un color conocido. "Icy Blue" y "IcyBlue"
+// dejan así de ser dos productos distintos.
+func isColor(token string) bool {
+	if colorWords[token] {
+		return true
+	}
+	if len(token) < 6 {
+		return false
+	}
+	for _, r := range token {
+		if r < 'a' || r > 'z' {
+			return false // lleva dígitos: es un código de modelo, no un color
+		}
+	}
+	for color := range colorWords {
+		if len(color) >= 4 && strings.Contains(token, color) {
+			return true
+		}
+	}
+	return false
 }
 
 func dedupe(in []string) []string {

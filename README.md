@@ -24,8 +24,9 @@ crudo, y `http://localhost:8081/api/status` dice qué scraper respondió y cuál
 
 ## Resultado
 
-Corriendo contra los catálogos en vivo, el sistema encuentra **9 productos que se
-venden en más de una tienda**, con diferencias reales de hasta **$300.000**:
+Corriendo contra los catálogos en vivo, el sistema encuentra **16 productos que
+se venden en más de una tienda**, con diferencias reales de hasta **$300.000**.
+Los seis mayores, ordenados por ahorro y sin omitir ninguno del tramo:
 
 | Producto | Falabella | Paris | Ahorro |
 |---|---|---|---|
@@ -33,13 +34,13 @@ venden en más de una tienda**, con diferencias reales de hasta **$300.000**:
 | Galaxy S25 Ultra 512 GB | **$999.990** | $1.199.990 | $200.000 |
 | Galaxy A37 256 GB | **$399.990** | $569.990 | $170.000 |
 | Galaxy S26 Ultra 256 GB | **$1.099.990** | $1.249.990 | $150.000 |
-| iPhone 16 | **$809.990** | $849.990 | $40.000 |
-| iPhone 15 | $699.990 | **$669.990** | $30.000 |
+| Galaxy S26 256 GB | $779.990 | **$649.990** | $130.000 |
+| Galaxy S26 Ultra 512 GB | **$1.259.990** | $1.359.990 | $100.000 |
 
-No gana siempre la misma tienda — el iPhone 15 está más barato en Paris — que es
-justamente por qué el comparador tiene sentido. Y los iPhone cruzan pese a que
-Falabella los lista sin capacidad (`IPhone 16`, sin GB): eso lo resuelve la
-fusión de dos niveles que se explica más abajo.
+**Paris gana en 7 de los 16**, así que no es que una tienda sea siempre más
+barata: es exactamente el caso en que un comparador paga la pena. Y los iPhone
+cruzan pese a que Falabella los lista sin capacidad (`IPhone 16`, sin GB), gracias
+a la fusión de dos niveles que se explica más abajo.
 
 ---
 
@@ -170,22 +171,30 @@ que no existe todavía se normaliza igual que uno conocido, y hay un test que lo
 comprueba con un producto inventado.
 
 Cuatro decisiones concretas, cada una nacida de un dato medido en el catálogo
-real, no de una intuición:
+real, no de una intuición. **Todos los porcentajes de abajo están medidos sobre
+las 169 ofertas del catálogo unificado de hoy** — la primera versión de este
+README los citaba sobre una sola página de Falabella y los presentaba como si
+fueran del conjunto, que es una forma silenciosa de mentir con datos ciertos:
 
-- **La marca sale del campo estructurado, no del título.** El **27 %** de los
-  títulos no contiene ningún token de marca (`Celular 15T 512GB`, `Celular Edge
-  60 256GB`), y extraerla del texto fabricaba marcas falsas como `15t` o `edge`.
-  El `brand` estructurado está presente en el **100 %** de los productos.
+- **La marca sale del campo estructurado cuando existe, y del título cuando no.**
+  El **26 %** de los títulos del catálogo (169 ofertas) no contiene ningún token
+  de marca — `Celular 15T 512GB`, `Celular Edge 60 256GB` — y extraerla del texto
+  fabricaba marcas falsas como `15t` o `edge`. Falabella publica `brand`
+  estructurado en el **100 %** de sus ofertas; **Paris en ninguna**, así que sobre
+  el 17 % del catálogo la marca sí sale del título, por el fallback de token. Los
+  títulos de Paris siempre nombran la marca, así que ahí funciona — pero es la
+  parte frágil del mecanismo, no la sólida.
 - **El almacenamiento es el máximo de las capacidades, no la primera.** Los
   títulos mezclan RAM y ROM en cualquier orden: `8GB RAM+ 256GB Memoria` y
   `256GB (12GB RAM)` conviven en el mismo catálogo. Quedarse con el primer match
   devolvía 8 GB para un teléfono de 256 GB — un dato falso *y* una clave partida.
-- **La condición entra en la clave.** El **7 %** del catálogo es reacondicionado.
+- **La condición entra en la clave.** El **14 %** del catálogo es reacondicionado
+  (23 de 169; el 16 % de las ofertas de Falabella).
   Si colapsa con el producto nuevo, el portal anuncia un "más barato" que el
   usuario no puede comprar. Eso no es un bug de formato: destruye la única
   promesa que hace la pantalla.
 - **Las ofertas sin capacidad se adhieren, pero sólo si no hay ambigüedad.** El
-  **16 %** de los títulos no declara almacenamiento — y son justo los iPhone,
+  **11 %** de los títulos no declara almacenamiento — y son justo los iPhone,
   que Falabella lista como `IPhone 17` a secas. Esas ofertas se unen al grupo que
   comparte marca, modelo y condición **si hay exactamente un candidato**. Con dos
   (256 GB y 512 GB) la oferta es genuinamente ambigua y se deja aparte: dos
@@ -330,7 +339,7 @@ de verdad.
 - **La forma real de los títulos de Paris y Ripley.** Todo el diseño de la clave
   canónica está calibrado contra el catálogo de Falabella. La tasa de cruce real
   entre tiendas es una extrapolación, no una medición.
-- **El comportamiento con el catálogo completo.** Se midió sobre ~154 ofertas.
+- **El comportamiento con el catálogo completo.** Se midió sobre 169 ofertas del catálogo unificado de hoy, no sobre el catálogo entero de cada tienda.
 
 ---
 
