@@ -130,10 +130,20 @@ async function scrape(): Promise<{ offers: Offer[]; source: string }> {
     }
 
     if (offers.length === 0) {
+      // Sin cookie, Cloudflare sirve una página que CARGA y viene vacía, así que
+      // el síntoma es idéntico al de un cambio de esquema. Medido levantando el
+      // repo en frío desde un clon limpio: el mensaje culpaba a Ripley de haber
+      // cambiado `findabilityProps` cuando lo único que faltaba era configurar
+      // `.env`. Quien clona esto por primera vez merece el diagnóstico correcto,
+      // no una pista falsa que le haga leer el parser.
       throw new Error(
         blocked ||
-          "la página cargó pero __NEXT_DATA__ no traía productos: puede que la " +
-            "estructura de findabilityProps haya cambiado"
+          (injected === 0
+            ? "no se configuró RIPLEY_CF_COOKIE: sin cookie de sesión, " +
+              "Cloudflare devuelve una página vacía. Copia `.env.example` a " +
+              "`.env` y sigue las instrucciones que trae dentro"
+            : "la página cargó pero __NEXT_DATA__ no traía productos: puede que " +
+              "la estructura de findabilityProps haya cambiado")
       );
     }
     return { offers, source: "navegador + __NEXT_DATA__ del servidor" };
