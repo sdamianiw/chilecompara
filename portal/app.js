@@ -22,6 +22,12 @@ function label(retailer) {
   return RETAILER_LABEL[retailer] ?? retailer;
 }
 
+/** Cuántas ofertas de esa tienda hay en el catálogo que se está mostrando. */
+function offersFrom(retailer) {
+  return catalog.products.reduce(
+    (n, p) => n + p.offers.filter((o) => o.retailer === retailer).length, 0);
+}
+
 function card(p) {
   const el = document.createElement("article");
   el.className = "card";
@@ -127,11 +133,26 @@ async function load() {
       const s = status[r];
       const chip = document.createElement("span");
       const ok = s && s.ok && s.count > 0;
-      chip.className = `chip ${ok ? "chip--ok" : "chip--down"}`;
-      // La procedencia se muestra, no se esconde: si una tienda se leyó a
-      // través de un intermediario, quien mira el precio tiene derecho a saberlo.
-      const via = ok && s.source && s.source !== "sitio directo" ? ` · vía ${s.source}` : "";
-      chip.textContent = ok ? `${label(r)}: ${s.count} productos${via}` : `${label(r)}: sin datos`;
+      // Lo que esa tienda aporta AHORA al catálogo, venga del último scrape o de
+      // uno anterior: es lo que el usuario está viendo en las tarjetas.
+      const enCatalogo = offersFrom(r);
+
+      if (ok) {
+        // La procedencia se muestra, no se esconde: si una tienda se leyó a
+        // través de un intermediario, quien mira el precio tiene derecho a saberlo.
+        const via = s.source && s.source !== "sitio directo" ? ` · vía ${s.source}` : "";
+        chip.className = "chip chip--ok";
+        chip.textContent = `${label(r)}: ${s.count} productos${via}`;
+      } else if (enCatalogo > 0) {
+        // El scrape falló pero Redis conserva lo último bueno, y esos precios
+        // están en pantalla. Decir "sin datos" sería mentir sobre lo que se ve;
+        // callar que están viejos, también. Se dicen las dos cosas.
+        chip.className = "chip chip--stale";
+        chip.textContent = `${label(r)}: ${enCatalogo} productos guardados · sin actualizar`;
+      } else {
+        chip.className = "chip chip--down";
+        chip.textContent = `${label(r)}: sin datos`;
+      }
       if (s && s.error) chip.title = s.error;
       return chip;
     }));
