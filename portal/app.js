@@ -102,7 +102,10 @@ async function load() {
       const chip = document.createElement("span");
       const ok = s && s.ok && s.count > 0;
       chip.className = `chip ${ok ? "chip--ok" : "chip--down"}`;
-      chip.textContent = ok ? `${label(r)}: ${s.count} productos` : `${label(r)}: sin datos`;
+      // La procedencia se muestra, no se esconde: si una tienda se leyó a
+      // través de un intermediario, quien mira el precio tiene derecho a saberlo.
+      const via = ok && s.source && s.source !== "sitio directo" ? ` · vía ${s.source}` : "";
+      chip.textContent = ok ? `${label(r)}: ${s.count} productos${via}` : `${label(r)}: sin datos`;
       if (s && s.error) chip.title = s.error;
       return chip;
     }));

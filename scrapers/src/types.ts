@@ -21,4 +21,7 @@ export interface ScrapeStatus {
   count: number;
   error?: string;
   at: string;
+  /** Cómo se obtuvieron los datos. El portal lo muestra: si una tienda se leyó
+   *  a través de un intermediario, el usuario tiene derecho a saberlo. */
+  source?: string;
 }

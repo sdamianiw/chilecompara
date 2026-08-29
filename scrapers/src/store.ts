@@ -38,7 +38,7 @@ export async function saveStatus(status: ScrapeStatus): Promise<void> {
  */
 export async function runLoop(
   retailer: string,
-  scrape: () => Promise<Offer[]>
+  scrape: () => Promise<{ offers: Offer[]; source?: string }>
 ): Promise<void> {
   const intervalSec = Number(process.env.SCRAPE_INTERVAL_SEC ?? "900");
 
@@ -46,16 +46,18 @@ export async function runLoop(
     const started = Date.now();
     try {
       console.log(`[${retailer}] scrape start`);
-      const offers = await scrape();
+      const { offers, source } = await scrape();
       await saveOffers(retailer, offers);
       await saveStatus({
         retailer,
         ok: true,
         count: offers.length,
         at: new Date().toISOString(),
+        source,
       });
       console.log(
-        `[${retailer}] scrape ok: ${offers.length} ofertas en ${Date.now() - started}ms`
+        `[${retailer}] scrape ok: ${offers.length} ofertas en ${Date.now() - started}ms` +
+          (source ? ` (fuente: ${source})` : "")
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

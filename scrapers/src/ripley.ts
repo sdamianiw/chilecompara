@@ -63,7 +63,7 @@ function harvestFromJson(node: unknown, out: Harvested[], depth = 0): void {
   for (const value of Object.values(o)) harvestFromJson(value, out, depth + 1);
 }
 
-async function scrape(): Promise<Offer[]> {
+async function scrape(): Promise<{ offers: Offer[]; source: string }> {
   const { browser, context } = await openBrowser();
   try {
     // Mitigación barata: Cloudflare (el guardián real de simple.ripley.cl, ver
@@ -191,7 +191,7 @@ async function scrape(): Promise<Offer[]> {
     if (offers.length === 0) {
       throw new Error("navegador cargó la página pero no se extrajo ningún producto (posible bloqueo anti-bot)");
     }
-    return offers;
+    return { offers, source: "navegador, sitio directo" };
   } finally {
     await browser.close();
   }

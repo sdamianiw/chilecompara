@@ -126,7 +126,7 @@ async function fetchPage(page: number): Promise<FalabellaResult[]> {
  * Falabella NO necesita navegador: renderiza en servidor con Next.js y embebe
  * el catálogo entero en __NEXT_DATA__. Un GET con User-Agent de navegador basta.
  */
-async function scrape(): Promise<Offer[]> {
+async function scrape(): Promise<{ offers: Offer[]; source: string }> {
   const offers: Offer[] = [];
   const seen = new Set<string>();
 
@@ -162,7 +162,7 @@ async function scrape(): Promise<Offer[]> {
   }
 
   if (offers.length === 0) throw new Error("0 ofertas extraídas");
-  return offers;
+  return { offers, source: "sitio directo" };
 }
 
 void runLoop(RETAILER, scrape);
