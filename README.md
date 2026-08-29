@@ -347,6 +347,28 @@ Ninguno de los tres se deja raspar de frente, y cada uno se resolvió distinto:
   momento…". Sirve para una demo y para un pinchazo puntual; **no es una
   integración desatendida.**
 
+**¿Y por qué Ripley no usa el proxy que salva a Paris?** Es la pregunta obvia
+—el mecanismo ya está escrito— y merece una medición, no una excusa. La hice
+*después de entregar*, y por eso está fechada aparte: **29/08/2026, ~14:00.**
+Tres estados con minutos de diferencia, contra la misma URL:
+
+| Vía | Resultado |
+|---|---|
+| Navegador + cookie caducada (>40 min) | **53 ofertas** — Cloudflare la sigue honrando pasado el nominal |
+| Navegador **sin cookie alguna** | bloqueado: `Un momento…` |
+| **Proxy de lectura** (`r.jina.ai`), el mismo que usa Paris | `Error en Ripley.com \| IUA`, en dos URLs distintas y forzando lectura sin caché |
+
+Conclusión: **el fallback de Paris no habría salvado a Ripley.** Ripley le sirve
+al proxy su propia página de bloqueo; el WAF de Paris, en cambio, lo deja pasar.
+Son defensas distintas y responden distinto a la misma infraestructura, así que
+cablear ese fallback a Ripley habría añadido un camino que falla siempre. La
+cookie manual no es un atajo que quedara por cerrar: es el borde de lo alcanzable
+sin pagar resolución de CAPTCHA o IPs residenciales, que está fuera de alcance a
+propósito.
+
+Eso no cambia el límite de arriba —esto no corre desatendido— pero sí cambia de
+qué es límite: **del sitio objetivo, no del diseño.**
+
 **Y el hallazgo que costó tres intentos:** el bloqueo de Ripley no estaba donde
 parecía. Primero, la ruta `/tecno/celulares/smartphones` está **muerta** — el
 interstitial de Cloudflare tapaba un 404, así que parecía bloqueo cuando además
