@@ -5,13 +5,13 @@ en vivo desde **Falabella, Paris y Ripley**, reconoce cuándo un mismo teléfono
 aparece en más de una tienda aunque cada sitio lo nombre distinto, y lo muestra
 en una sola pantalla con el precio de cada retailer y el más barato destacado.
 
-> **Estado hoy:** los tres retailers entregan datos en vivo. **44 productos se
-> pueden comparar entre tiendas, 8 de ellos aparecen en las tres.** Paris se lee
-> a través de un proxy público y Ripley necesita una cookie de sesión renovada a
-> mano: ambas cosas están explicadas abajo y se muestran en el portal, no se
-> disimulan.
+> **Estado hoy:** los tres retailers entregan datos en vivo. En la última
+> medición, **32 productos se pueden comparar entre tiendas y 7 aparecen en las
+> tres**. Paris se lee a través de un proxy público y Ripley necesita una cookie
+> de sesión renovada a mano: ambas cosas están explicadas abajo y se muestran en
+> el portal, no se disimulan.
 
-Todo corre local con un comando. Sin nube, sin cuentas, sin claves.
+Todo corre local con un comando, sin cuentas ni infraestructura en la nube:
 
 ```bash
 docker compose up --build
@@ -19,34 +19,80 @@ docker compose up --build
 
 Luego abre **http://localhost:8080**.
 
+**Con eso ya ves dos tiendas.** Falabella y Paris funcionan sin configurar nada.
+Ripley necesita un paso manual de treinta segundos, porque Cloudflare exige que
+un navegador real pase su challenge: está en [Configurar Ripley](#configurar-ripley-la-tercera-tienda),
+justo debajo. Sin ese paso el portal no se rompe: muestra *Ripley: sin datos* y
+compara las otras dos.
+
+Dos matices de honestidad que conviene leer antes que el código, porque un
+"corre local sin dependencias" a secas sería inexacto: el scraper de Paris cae
+hoy a un **proxy de lectura público** (`r.jina.ai`) porque su WAF nos sirve un
+CAPTCHA, y Ripley depende de esa **cookie manual que caduca en ~30 minutos**.
+Ninguna de las dos es una cuenta ni una clave de API, y ambas se declaran en el
+portal; pero llamar a esto "sin dependencias externas" sería vender el sistema
+por más de lo que es. Están en [Limitaciones conocidas](#limitaciones-conocidas)
+con su razón y su coste.
+
+### Configurar Ripley (la tercera tienda)
+
+```bash
+cp .env.example .env      # y sigue las instrucciones que trae dentro
+docker compose up -d --force-recreate scraper-ripley
+```
+
+`.env.example` documenta las tres variables y cómo obtener cada una. El resumen:
+
+| Variable | Para qué | Cómo se obtiene |
+|---|---|---|
+| `RIPLEY_CF_COOKIE` | Pasar el challenge de Cloudflare | Abre [el listado de Ripley](https://simple.ripley.cl/search/smartphones?sort=relevance_desc&page=1), espera a que cargue, F12 → Application → Cookies → filtra `cf_clea` → copia el **Value**. Úsalo como `cf_clearance=<valor>` |
+| `SCRAPER_UA` | Cloudflare ata la cookie al navegador que la obtuvo; con otro User-Agent la rechaza | En la consola del navegador: `navigator.userAgent` |
+| `PARIS_WAF_COOKIE` | *Opcional.* Leer Paris directo en vez de por el proxy | F12 → Application → Cookies → `aws-waf-token`, tras resolver el CAPTCHA a mano |
+
+Comprueba que entró:
+
+```bash
+docker compose logs --tail 5 scraper-ripley   # -> "scrape ok: N ofertas"
+curl -s localhost:8081/api/status              # -> ripley "ok": true
+```
+
+Si Ripley dice `ok: false`, casi siempre es que la cookie caducó: repite el
+`cp`/pega y recrea el contenedor.
+
 La API queda en `http://localhost:8081/api/products` por si quieres ver el JSON
 crudo, y `http://localhost:8081/api/status` dice qué scraper respondió y cuál no.
 
 ## Resultado
 
-Contra los catálogos en vivo: **168 productos, 273 ofertas, 44 comparables entre
-tiendas y 8 presentes en las tres.** Los ocho que aparecen en Falabella, Paris y
-Ripley a la vez:
+**Medido el 29/08/2026 a las 12:36 contra los catálogos en vivo: 143 productos, 226 ofertas,
+32 comparables entre tiendas y 7 presentes en las tres.**
+
+> Estas cifras son una **fotografía**, no una constante. Los scrapers repiten
+> cada 15 minutos y el inventario de las tiendas rota: entre dos lecturas
+> separadas por diez minutos el catálogo pasó de 168 a 143 productos porque
+> Ripley cambió lo que publica. Lo que no cambia es el mecanismo. Si el número
+> de esta tabla no coincide con el que ves al levantarlo, la tabla está vieja,
+> no rota: la verdad está en `http://localhost:8081/api/products`.
+
+Los 7 productos que aparecían en Falabella, Paris y Ripley a la vez:
 
 | Producto | Falabella | Paris | Ripley | Ahorro |
 |---|---|---|---|---|
-| Galaxy S26 256 GB | $779.990 | **$649.990** | $819.990 | $170.000 |
-| Galaxy S26 Ultra 256 GB | **$1.099.990** | $1.249.990 | $1.219.990 | $150.000 |
-| Redmi Note 15 5G 256 GB | $279.990 | $269.990 | **$179.990** | $100.000 |
-| Redmi Note 15 Pro 5G 256 GB | **$279.990** | $319.990 | $339.990 | $60.000 |
-| Galaxy S25 256 GB | $599.990 | **$549.990** | $549.990 | $50.000 |
-| iPhone 15 | $699.990 | **$669.990** | $719.990 | $50.000 |
-| Honor 400 Smart 6+256 GB | $209.990 | **$189.990** | $199.990 | $20.000 |
-| Moto G06 128 GB | $94.990 | **$89.990** | $89.990 | $5.000 |
+| Galaxy S26 Ultra 256 GB Black | **$1.099.990** | $1.249.990 | $1.219.990 | $150.000 |
+| Redmi Note 15 Pro 5G 256GB | **$279.990** | $319.990 | $339.990 | $60.000 |
+| Galaxy S25 256GB | $599.990 | **$549.990** | **$549.990** | $50.000 |
+| IPhone 15 128 GB | $699.990 | **$669.990** | $719.990 | $50.000 |
+| Redmi Note 15 5G 256GB | $279.990 | $269.990 | **$239.990** | $40.000 |
+| 400 Smart 6+256GB | $209.990 | **$189.990** | $199.990 | $20.000 |
+| G06 128GB | $94.990 | **$89.990** | **$89.990** | $5.000 |
 
-**Cada tienda gana en algún producto.** Falabella es la más barata en el S26
-Ultra y en el Redmi Note 15 Pro; Ripley arrasa en el Redmi Note 15 con $100.000
-menos; Paris gana en la mitad de la tabla. Esa es exactamente la tesis del
-cliente: no hay una tienda barata, hay un precio barato por producto, y sin
+**Cada tienda gana en algún producto**: en esta lectura Ripley es la más barata
+en 15 comparaciones, Falabella en 11 y Paris en 6. Esa es exactamente la tesis
+del cliente: no hay una tienda barata, hay un precio barato por producto, y sin
 comparar no se ve.
 
-Fuera de la tabla, la mayor diferencia del catálogo completo son **$300.000** en
-el Galaxy S25 Ultra 256 GB (Falabella $849.990 vs Paris $1.149.990).
+La mayor diferencia del catálogo completo era de **$300.000** en el Galaxy S25 Ultra 256GB
+(Falabella $849.990 vs Paris $1.149.990).
 
 Y los iPhone cruzan pese a que Falabella los lista sin capacidad (`IPhone 15`,
 sin GB): eso lo resuelve la fusión de dos niveles que se explica más abajo.
@@ -217,6 +263,11 @@ precio al contado de otra tienda inventa un ahorro que no existe. Se usa el
 precio al contado (`internetPrice` / `eventPrice`, o el de oferta) y nada más.
 Es una decisión de negocio, no de parsing.
 
+**La reserva:** eso está *verificado* para Falabella y Ripley, donde el precio
+con tarjeta viene en un campo aparte que descarto por nombre. En Paris el precio
+llega en un único atributo y no comprobé que nunca traiga el precio Tarjeta
+Cencosud. Está anotado en las limitaciones en vez de dejarlo implícito.
+
 ### 5. Falabella se sirve en ISO-8859-1
 
 La página declara `<meta charSet="iso-8859-1">`. Decodificarla como UTF-8
@@ -335,22 +386,38 @@ que no destraba nada es peso muerto.
   es más frágil que el campo estructurado. Un color que no esté en la lista
   parte la clave.
 
-### 3. Cobertura del catálogo
+### 3. Cobertura del catálogo, y es desigual entre tiendas
 
-Se leen 3 páginas de la categoría de smartphones de Falabella, no el catálogo
-completo. Suficiente para probar la tesis; insuficiente para ser un comparador
-de verdad.
+Se leen 3 páginas de Falabella y 2 de Ripley, no el catálogo completo. **Paris
+es el caso peor: una sola página por ruta, ~31 ofertas frente a ~150 de
+Falabella y ~100 de Ripley.** Eso no sesga los precios que se muestran, pero sí
+deprime el número de productos comparables: un teléfono que Paris vende y no
+alcanzamos a leer aparece como si sólo estuviera en dos tiendas. Paginar Paris
+es trabajo pendiente, no un límite del diseño.
 
-### 4. Lo que NO pude verificar
+### 4. La tarjeta no siempre enlaza al producto
+
+En Falabella cada oferta trae su URL. En Paris y Ripley los datos vienen del
+listado (atributos de Constructor.io y `__NEXT_DATA__` respectivamente) y **el
+enlace de la tarjeta apunta a la página de búsqueda, no a la ficha del
+teléfono**. El precio y el emparejamiento son correctos; el clic deja al usuario
+un paso más lejos de lo que debería. Se arregla leyendo el slug de cada producto
+en la misma estructura de la que ya sacamos el precio.
+
+### 5. Lo que NO pude verificar
 
 - **Si un servicio de resolución de CAPTCHA o una IP residencial destrabarían
   Paris y Ripley.** Es la única vía técnica no agotada, y queda fuera de alcance
   a propósito. (Stealth sí se probó: negativo, ver arriba.)
 - **Si el bloqueo de Paris es 100 % consistente.** Se probó 3 veces (2 headless,
   1 headed) y las 3 fallaron; no se descarta que WAF deje pasar ocasionalmente.
-- **La forma real de los títulos de Paris y Ripley.** Todo el diseño de la clave
-  canónica está calibrado contra el catálogo de Falabella. La tasa de cruce real
-  entre tiendas es una extrapolación, no una medición.
+- **Que el precio que publica Paris sea siempre el precio al contado.** Para
+  Falabella y Ripley excluyo explícitamente el precio con tarjeta de la tienda
+  (`cmrPrice`, `ripleyPrice`). En Paris confío en el atributo
+  `data-cnstrc-item-price` sin haber comprobado que nunca sirva el precio Tarjeta
+  Cencosud. Una revisión independiente lo contrastó en un producto y coincidía
+  con el precio público, pero **un producto no es el catálogo**: es el punto
+  ciego que más me incomoda, porque contradiría la decisión 4.
 - **El comportamiento con el catálogo completo.** Se midió sobre 169 ofertas del catálogo unificado de hoy, no sobre el catálogo entero de cada tienda.
 
 ---

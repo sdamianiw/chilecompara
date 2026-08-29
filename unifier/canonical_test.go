@@ -182,6 +182,12 @@ func TestAccessoriesAndBundlesAreExcluded(t *testing.T) {
 		"Celular 600E 8 512GB + Cargador",
 		"17 Ultra 512GB + kit camara",
 		"Barbie Phone + Dos carcasas + Stickers y Charms",
+		// Encontrados vivos en el catálogo por la revisión independiente: no
+		// son teléfonos y competían por precio contra teléfonos.
+		"APPLE PENCIL (USB-C)",
+		"Lápiz óptico para tablet",
+		"Tablet Galaxy Tab A9 64GB",
+		"iPad 10.9 128GB WiFi",
 	}
 	for _, title := range fuera {
 		if !IsAccessoryOrBundle(title) {

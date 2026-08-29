@@ -125,7 +125,8 @@ var colorWords = map[string]bool{
 var reAccessory = regexp.MustCompile(
 	`(^|[^a-z])(cargador|carcasa|carcasas|funda|fundas|audifonos|cable|` +
 		`adaptador|protector|mica|lamina|soporte|powerbank|sticker|stickers|` +
-		`charm|charms|kit|earbuds|watch|reloj|smartwatch|parlante|bocina)([^a-z]|$)`,
+		`charm|charms|kit|earbuds|watch|reloj|smartwatch|parlante|bocina|` +
+		`pencil|lapiz|tablet|ipad)([^a-z]|$)`,
 )
 
 // IsAccessoryOrBundle decide si una oferta debe quedar fuera del catálogo.
