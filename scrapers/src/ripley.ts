@@ -20,6 +20,28 @@ const CATEGORY =
  * estructurados, inmunes a un cambio de maquetado; (2) el DOM ya renderizado.
  * Tener dos fuentes no es redundancia: un rediseño rompe la segunda y un cambio
  * de API rompe la primera, y nunca las dos el mismo día.
+ *
+ * Investigado con probe/dump.js (borrado tras esta sesión): simple.ripley.cl es
+ * un Next.js "pages router" que arma la página con Module Federation — el
+ * listado de productos lo pinta un remote separado, `findabilitycomponent`,
+ * cargado vía `remoteEntry.js` y varios chunks JS/CSS aparte. Esos chunks del
+ * remote (no la página en sí, que carga bien) reciben intermitentemente un 403
+ * de Cloudflare: en las pruebas, ~30-40% de las cargas lo consiguen y el resto
+ * el remote muere con "findability/findability offline" + React error #418/423
+ * y el DOM queda vacío (0 `<a>`, sólo el shell `__NEXT_DATA__` con
+ * `findabilityProps.catalog: null`). No hay llamada JSON propia que capturar:
+ * cuando el remote sí carga, pinta el catálogo directo a HTML server-rendered
+ * por ese componente, sin un fetch de API adicional visible. Por eso la vía
+ * DOM reintenta con recargas completas de página en vez de esperar más tiempo
+ * en la misma carga.
+ *
+ * Selector real (visto en el DOM cuando el remote carga): cada producto es
+ * `a.product-link` envolviendo un `article.product-item-horizontal`. El título
+ * limpio está en `img[alt]` (no en un nodo de texto). El SKU es el número final
+ * del slug de la URL, ej. `/smartphone-xiaomi-redmi-note-15-5g-256gb-2000409968466?...`
+ * -> sku `2000409968466`. Los viejos selectores (`catalog-product-item`,
+ * `prices__offer-price`, `a[href*="/p/"]`) no existen en este DOM: por eso
+ * `json=0 dom=0` pese a que la página sí cargaba.
  */
 
 interface Harvested {
@@ -104,12 +126,25 @@ async function scrape(): Promise<{ offers: Offer[]; source: string }> {
     await page.goto(CATEGORY, { waitUntil: "domcontentloaded", timeout: 60_000 });
 
     // El challenge necesita que el JS corra; los productos aparecen después.
-    await page
-      .waitForSelector("a[href*='/p/'], .catalog-product-item, [class*='catalog-product']", {
-        timeout: 30_000,
-      })
-      .catch(() => undefined);
-    await page.waitForTimeout(5_000);
+    await page.waitForSelector("a.product-link", { timeout: 20_000 }).catch(() => undefined);
+    await page.waitForTimeout(4_000);
+
+    // El listado lo pinta un remote de Module Federation (findabilitycomponent)
+    // cuyos chunks Cloudflare bloquea con 403 de forma intermitente (medido:
+    // falla en la mayoría de las cargas). Cuando falla, el remote nunca monta y
+    // el DOM queda vacío. Recargar la página completa (no sólo esperar más)
+    // reintenta la carga de esos chunks desde cero, que es lo que en la
+    // práctica lo destraba.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const found = await page.evaluate(
+        () => document.querySelectorAll("a.product-link").length
+      );
+      if (found > 0) break;
+      console.log(`[${RETAILER}] intento ${attempt + 1}: 0 productos en el DOM, recargando`);
+      await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 }).catch(() => undefined);
+      await page.waitForSelector("a.product-link", { timeout: 20_000 }).catch(() => undefined);
+      await page.waitForTimeout(4_000);
+    }
 
     // simple.ripley.cl está detrás de Cloudflare: la carga inicial responde
     // 307 -> 403 y sirve un interstitial ("Un momento… estamos comprobando tu
@@ -135,30 +170,42 @@ async function scrape(): Promise<{ offers: Offer[]; source: string }> {
 
     const fromDom = (await page.evaluate(() => {
       const results: { sku: string; title: string; price: string; url: string }[] = [];
-      const cards = document.querySelectorAll<HTMLElement>(
-        "a.catalog-product-item, [class*='catalog-product-item'], a[href*='/p/']"
-      );
+      const cards = document.querySelectorAll<HTMLAnchorElement>("a.product-link");
 
       for (const card of Array.from(cards)) {
-        const link = card instanceof HTMLAnchorElement ? card : card.querySelector("a");
-        const href = link?.getAttribute("href") ?? "";
+        const href = card.getAttribute("href") ?? "";
         if (!href) continue;
 
-        const titleEl = card.querySelector(
-          "[class*='product-details__name'], [class*='product-name'], h3, h2"
-        );
-        const title = titleEl?.textContent?.trim() ?? "";
+        // El slug termina en el SKU numérico, antes de la querystring:
+        // /smartphone-xiaomi-redmi-note-15-5g-256gb-2000409968466?color_80=...
+        const skuMatch = href.match(/-(\d{6,})(?:\?|$)/);
+        if (!skuMatch) continue;
+        const sku = skuMatch[1];
+
+        // El título limpio vive en el alt de la imagen, no en un nodo de texto.
+        const title = card.querySelector("img[alt]")?.getAttribute("alt")?.trim() ?? "";
         if (title.length < 4) continue;
 
-        // Se toma el precio de oferta o el normal; nunca el de tarjeta Ripley.
-        const priceEl = card.querySelector(
-          "[class*='prices__offer-price'], [class*='offer-price'], [class*='prices__list-price'], [class*='normal-price']"
-        );
-        const price = priceEl?.textContent?.trim() ?? "";
-        if (!price) continue;
+        // Se recogen todos los precios candidatos de la tarjeta y se descartan
+        // los que estén marcados como "tarjeta" (crédito de la propia tienda).
+        // Entre los que quedan (oferta/normal) se toma el MÁS ALTO: si uno de
+        // ellos fuera en realidad el de tarjeta y no se detectó por el texto,
+        // tomar el más alto nunca cuela un ahorro falso, sólo subestima uno real.
+        const priceCandidates: number[] = [];
+        card.querySelectorAll<HTMLElement>("[class*='price' i]").forEach((el) => {
+          const context = (el.closest("[class*='price' i]")?.parentElement?.textContent ?? "") +
+            " " + (el.getAttribute("class") ?? "") + " " + (el.textContent ?? "");
+          if (/tarjeta/i.test(context)) return;
+          const digits = (el.textContent ?? "").replace(/[^\d]/g, "");
+          if (!digits) return;
+          const n = Number(digits);
+          if (Number.isFinite(n) && n > 1000) priceCandidates.push(n);
+        });
+        if (priceCandidates.length === 0) continue;
+        const price = String(Math.max(...priceCandidates));
 
         results.push({
-          sku: href.split("/").filter(Boolean).pop() ?? href,
+          sku,
           title,
           price,
           url: href.startsWith("http") ? href : `https://simple.ripley.cl${href}`,
@@ -194,7 +241,13 @@ async function scrape(): Promise<{ offers: Offer[]; source: string }> {
     }
 
     if (offers.length === 0) {
-      throw new Error("navegador cargó la página pero no se extrajo ningún producto (posible bloqueo anti-bot)");
+      throw new Error(
+        "navegador cargó la página pero no se extrajo ningún producto: tras 3 " +
+          "reintentos con recarga completa, el remote 'findabilitycomponent' " +
+          "(Module Federation) que pinta el catálogo no llegó a montar — sus " +
+          "chunks JS/CSS reciben 403 de Cloudflare de forma intermitente. No es " +
+          "un problema de selectores."
+      );
     }
     return { offers, source: "navegador, sitio directo" };
   } finally {

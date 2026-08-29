@@ -32,7 +32,7 @@ function card(p) {
 
   const rows = p.offers.map((o) => `
     <li class="row ${o.cheapest ? "row--cheapest" : ""}">
-      <a class="row__retailer" href="${o.url}" target="_blank" rel="noopener">${label(o.retailer)}</a>
+      <a class="row__retailer" href="${safeUrl(o.url)}" target="_blank" rel="noopener">${label(o.retailer)}</a>
       <span class="row__price">${CLP.format(o.priceCLP)}</span>
       ${o.cheapest ? '<span class="badge">más barato</span>' : ""}
     </li>`).join("");
@@ -53,6 +53,22 @@ function card(p) {
     <p class="card__meta">${p.retailerCount === 1 ? "Solo en 1 tienda" : `En ${p.retailerCount} tiendas`}</p>
   `;
   return el;
+}
+
+/**
+ * Una URL raspada de un sitio de terceros es entrada no confiable, igual que el
+ * título. Se escapa como atributo Y se exige que el esquema sea http(s): sin
+ * esto, un `javascript:` en el campo `url` de una oferta se ejecutaría al hacer
+ * clic. El título ya se escapaba; la URL era la superficie que nadie miraba.
+ */
+function safeUrl(raw) {
+  try {
+    const u = new URL(String(raw), window.location.origin);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return "#";
+    return escapeHtml(u.href);
+  } catch {
+    return "#";
+  }
 }
 
 function escapeHtml(s) {
