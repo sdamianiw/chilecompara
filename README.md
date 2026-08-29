@@ -5,11 +5,12 @@ en vivo desde **Falabella, Paris y Ripley**, reconoce cuándo un mismo teléfono
 aparece en más de una tienda aunque cada sitio lo nombre distinto, y lo muestra
 en una sola pantalla con el precio de cada retailer y el más barato destacado.
 
-> **Estado real hoy:** Falabella y Paris entregan datos en vivo. Ripley está
-> bloqueado por un challenge de Cloudflare que no se pudo rodear sin salir del
-> alcance del ejercicio; su nodo corre igual y reporta el motivo. El detalle
-> completo está en *Limitaciones conocidas*, y no se disimula en ninguna parte:
-> el portal lo muestra en su cabecera.
+> **Estado real hoy:** Falabella y Paris entregan datos en vivo — **16 productos
+> se pueden comparar entre ambas**. Ripley no: Cloudflare bloquea de forma
+> intermitente los chunks del micro-frontend que pinta su listado, y un scraper
+> que acierta una de cada tres veces no es un scraper. Su nodo corre igual y
+> reporta la causa. El detalle está en *Limitaciones conocidas*, y no se disimula
+> en ninguna parte: el portal lo muestra en su cabecera.
 
 Todo corre local con un comando. Sin nube, sin cuentas, sin claves.
 
@@ -62,13 +63,13 @@ flowchart LR
     subgraph sitios["Sitios en vivo"]
         F["falabella.com<br/>HTTP 200 · SSR"]
         P["paris.cl<br/>Next.js + Constructor.io<br/>HTTP 405 · AWS WAF"]
-        R["simple.ripley.cl<br/>HTTP 403 · challenge JS"]
+        R["simple.ripley.cl<br/>Module Federation<br/>Cloudflare intermitente"]
     end
 
     subgraph nodos["Un contenedor por retailer · TypeScript"]
         SF["scraper-falabella<br/>fetch + __NEXT_DATA__"]
         SP["scraper-paris<br/>directo o proxy de lectura"]
-        SR["scraper-ripley<br/>Chromium + DOM/XHR"]
+        SR["scraper-ripley<br/>Chromium + reintento"]
     end
 
     subgraph servicios["Un contenedor por servicio"]
@@ -258,7 +259,30 @@ misma clase de bloqueo y se resolvió por la vía descrita en la decisión 2:
 | Retailer | Defensa | Evidencia |
 |---|---|---|
 | Paris *(resuelto)* | **AWS WAF con CAPTCHA interactivo** | El HTML carga `captcha.js` y renderiza "Let's confirm you are human" con un puzzle de imágenes. No es un challenge JS silencioso que un navegador resuelva solo. Probado headless y headed con `xvfb-run`: ambos bloqueados. **Se rodea con el proxy de lectura** (decisión 2) |
-| Ripley *(sin salida)* | **Cloudflare managed challenge** | 307 → 403 con `server: cloudflare`; el DOM renderizado es el interstitial "Un momento… estamos comprobando tu navegador", nunca el catálogo. Enmascarar `navigator.webdriver` no cambia nada |
+| Ripley *(sin salida)* | **Cloudflare, y encima intermitente** | Ver abajo: el bloqueo no está donde parecía |
+
+**La causa raíz de Ripley resultó ser otra, y encontrarla costó tres intentos.**
+El primero fue un falso diagnóstico propio: el scraper apuntaba a
+`/tecno/celulares/smartphones`, una ruta **muerta** que responde "La página que
+buscas ya no se encuentra disponible" — y el interstitial de Cloudflare tapaba
+ese 404, así que parecía un bloqueo cuando además era una URL inexistente. La
+ruta viva es el buscador, `/search/smartphones`.
+
+Con la URL correcta y una cookie de sesión, Cloudflare **sí se pasa**. Y ahí
+apareció el problema de verdad: `simple.ripley.cl` es una app Next.js que arma
+la página con **Module Federation** (Webpack 5), y el listado lo pinta un remote
+separado (`findabilitycomponent`). La página principal y su `remoteEntry.js`
+cargan con 200, pero Cloudflare devuelve **403 de forma intermitente a los chunks
+internos de ese remote**. Cuando eso pasa, la consola dice `findability offline`,
+React tira los errores #418/#423 y `__NEXT_DATA__.props.pageProps
+.findabilityProps.catalog` llega en `null`: el DOM queda vacío sin que nada
+parezca haber fallado.
+
+Esperar más no sirve — hay que **recargar** para reintentar la carga de esos
+chunks. El scraper lo hace hasta tres veces. En las pruebas el remote montaba en
+un 30-40 % de las cargas; en las últimas corridas, en ninguna. Un scraper que
+funciona una de cada tres veces no es un scraper, así que el nodo queda
+declarando el motivo en vez de fingir un resultado.
 
 Se probó además **`playwright-extra` con el plugin stealth**, que es la
 mitigación estándar contra la detección de automatización. Resultado negativo en
