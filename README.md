@@ -1,6 +1,6 @@
-![Go](https://img.shields.io/badge/backend-Go-00ADD8) ![TypeScript](https://img.shields.io/badge/scrapers-TypeScript-3178C6)
-
 # chilecompara
+
+![Go](https://img.shields.io/badge/backend-Go-00ADD8) ![TypeScript](https://img.shields.io/badge/scrapers-TypeScript-3178C6)
 
 Without it, comparing a smartphone's price across Falabella, Paris and Ripley means opening three tabs and matching titles that never agree word for word: one store calls it `Celular Galaxy S25 Ultra 256GB`, another `Samsung Galaxy S25 Ultra 256 GB Negro Titanio`.
 
@@ -75,11 +75,11 @@ docker compose up -d --force-recreate scraper-ripley
 | Storage backend | 1 (Redis, AOF-persisted) | `docker-compose.yml` |
 | Go module dependency | `github.com/redis/go-redis/v9 v9.7.0`, shared by `unifier` and `api` | `unifier/go.mod`, `api/go.mod` |
 | Scraper dependencies | `playwright 1.49.1`, `ioredis 5.4.1` | `scrapers/package.json` |
-| Commits on `main` | 20 | `git log --oneline \| wc -l` |
 
 No product/offer sample data ships in the repo. `probe/` (the scraper's raw dumps) is git-ignored, so every number above is about the code, not a specific catalog snapshot. Once running, the live counts are visible at:
 
 ```bash
+# the API container is published on 8081; the portal on 8080
 curl -s localhost:8081/api/status      # which scraper answered, and how
 curl -s localhost:8081/api/products    # the unified catalog, with productCount/offerCount
 ```
@@ -101,8 +101,6 @@ Live catalog counts fluctuate run to run because retailer inventory rotates and 
 
 ## Limitations
 
-Known boundaries of what's been verified, not a marketing gap list:
-
 - No CI and no automated test run wired into this repo beyond `go test ./...` in `unifier/`. The scrapers and API have no tests, so a retailer markup change is only caught by watching `/api/status` go to `ok: false`.
 - Ripley's session cookie expires in roughly 30 minutes; keeping all three retailers live requires re-pasting `RIPLEY_CF_COOKIE` by hand, which rules out unattended long-running deployments as-is.
 - Paris is read through a public proxy (`r.jina.ai`) by default because its AWS WAF serves an image CAPTCHA to direct and headless requests alike; the fallback is disclosed in the portal and in `scrapers/src/paris.ts`, not silently substituted.
@@ -114,8 +112,6 @@ Known boundaries of what's been verified, not a marketing gap list:
 - Network suffixes (`5G`, `LTE`) are dropped from the matching key on purpose, because one store writes "5G" in the title and another omits it for the same phone; the tradeoff is that a genuinely different `LTE`-only variant of a model can collapse into the same card as its `5G` sibling.
 - The brand and color vocabularies used for title parsing are finite lists (`unifier/canonical.go`); an unlisted brand falls back to "first useful token," which works but is more fragile than reading a structured field, and an unlisted color can split a matching key that should have merged.
 
-Together, these are the honest edges of the tradeoffs above, not a to-do list dressed up as risk: each one is a deliberate call with a measured cost, made visible instead of smoothed over.
-
 ## License
 
-MIT (license file to be added). Spanish original at `docs/README.es.md`.
+MIT, see [LICENSE](LICENSE). Spanish original at [docs/README.es.md](docs/README.es.md).
