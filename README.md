@@ -6,7 +6,7 @@ Comparing a smartphone's price across Falabella, Paris and Ripley means opening 
 
 Fetching the prices is the easy half. The hard part is deciding that two differently worded listings are the same phone, using rules general enough to work on a model that does not exist yet, with no hardcoded product list.
 
-Everything runs locally with one command, no cloud account or paid API required. The only manual step is a browser cookie for the one retailer that puts a Cloudflare challenge in front of its catalog.
+Everything runs locally with one command, no cloud account or paid API required. The only manual step is a browser cookie for the one retailer that puts a Cloudflare challenge in front of its catalog. The Spanish write-up in [docs/README.es.md](docs/README.es.md) is longer and includes the measured catalog counts and the Ripley sort-order investigation.
 
 ## Architecture
 
@@ -91,13 +91,13 @@ Live catalog counts fluctuate run to run because retailer inventory rotates and 
 - **Go for the unifier, TypeScript for the scrapers.** The scrapers need a real browser (Playwright) to get past Paris's WAF and Ripley's Cloudflare challenge, and Node's ecosystem for that is stronger. The unifier is a tight, testable transform over a few hundred JSON rows, where Go's static typing and single-binary deploy fit better than adding a second Node process (`unifier/main.go`, `scrapers/src/browser.ts`).
 - **Cookie-based bypass instead of a paid unlocker.** `RIPLEY_CF_COOKIE` and `SCRAPER_UA` (`docker-compose.yml`, `.env.example`) are a manually obtained `cf_clearance` cookie tied to the browser that got it. It is a demo-grade workaround, documented in the repo rather than hidden in it.
 - **Two-level product matching.** Offers first group by `brand | model | storage | condition`; a second pass merges storage-less offers (mostly Falabella's undated iPhones) into a group only when exactly one candidate exists for that model, to avoid inventing a false price match (`unifier/main.go`, `unify()`).
-- **Accessories and bundles are filtered before matching**, not after: `unifier/canonical.go`'s `IsAccessoryOrBundle` regex removes chargers and add-on kits so their price never competes with a phone's.
+- **Accessories and bundles are filtered out before matching runs.** `unifier/canonical.go`'s `IsAccessoryOrBundle` regex removes chargers and add-on kits so their price never competes with a phone's.
 - **The catalog is rebuilt from scratch on every event**, not updated incrementally. At a few hundred rows the cost is negligible, and it removes an entire class of stale-state bugs: a withdrawn offer that lingers, an old price that wins (`unifier/main.go`, `rebuild()`).
-- **Falabella's HTML is decoded as `latin1`, not UTF-8**, because the page declares `charSet="iso-8859-1"`; decoding it as UTF-8 corrupts every accented character in the titles that the matcher depends on (`scrapers/src/falabella.ts`).
+- **Falabella's HTML is decoded as `latin1`, matching the page's own `charSet="iso-8859-1"` declaration.** Decoding it as UTF-8 corrupts every accented character in the titles that the matcher depends on (`scrapers/src/falabella.ts`).
 - **Matching logic is tested with real, measured titles, not invented ones.** `unifier/canonical_test.go` has 6 test functions; `TestIdentify` alone carries 11 table-driven cases built from titles pulled off the live Falabella and Ripley catalogs (RAM-before-ROM ordering, refurbished vs. new, storage-less iPhones, brand missing from the title), plus one deliberately invented phone to catch hardcoded product lists.
 - **Redis is the only datastore, with AOF persistence and a mounted volume.** There is no Postgres and no separate cache layer. Offers, events and the resolved catalog all live in Redis, which is enough at a few hundred rows and keeps the number of moving parts down for a project meant to be cloned and run in one command.
 - **The portal proxies the API instead of calling it cross-origin.** `portal/nginx.conf` forwards `/api/` to the `api` container so the browser only ever talks to one origin: no CORS headers to configure on the Go side or debug in the browser.
-- **Storage is taken as the maximum of the numbers found, not the first one.** Titles mix RAM and ROM in either order (`8GB RAM+ 256GB Memoria` vs. `256GB (12GB RAM)`); taking the first match returned 8 GB for a 256 GB phone, which is both a wrong displayed spec and a split matching key (`unifier/canonical.go`).
+- **Storage is the largest number in the title.** Titles mix RAM and ROM in either order (`8GB RAM+ 256GB Memoria` vs. `256GB (12GB RAM)`); taking the first match returned 8 GB for a 256 GB phone, which is both a wrong displayed spec and a split matching key (`unifier/canonical.go`).
 
 ## Limitations
 
